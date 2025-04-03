@@ -261,6 +261,28 @@ func confirm(objects []cos.Object, fo *FileOperations, cosUrl StorageUrl) bool {
 	return true
 }
 
+func confirmOfs(prefix string, fo *FileOperations, cosUrl StorageUrl) bool {
+	if fo.Operation.Force {
+		return true
+	}
+
+	var logBuffer bytes.Buffer
+	logBuffer.WriteString("\n")
+	if prefix == "" {
+		logBuffer.WriteString(fmt.Sprintf("Do you want to delete all the objects in the %s bucket? ", cosUrl.(*CosUrl).Bucket))
+	} else {
+		logBuffer.WriteString(fmt.Sprintf("Do you want to delete all the objects under the %s path? ", prefix))
+	}
+
+	fmt.Printf(logBuffer.String())
+
+	var val string
+	if _, err := fmt.Scanln(&val); err != nil || (strings.ToLower(val) != "yes" && strings.ToLower(val) != "y") {
+		return false
+	}
+	return true
+}
+
 func DeleteLocalFiles(keysToDelete map[string]string, fileUrl StorageUrl, fo *FileOperations) error {
 	var sortList []string
 	for key, _ := range keysToDelete {
@@ -456,7 +478,17 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 
 		if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
 			prefix := cosUrl.(*CosUrl).Object
-			err = RemoveOfsObjects("", c, cosUrl, prefix, fo)
+
+			if len(fo.Operation.Filters) == 0 {
+				if confirmOfs(prefix, fo, cosUrl) {
+					// 若不筛选路径，则直接使用?recursive 方式直接删除路径下所有内容
+					err = RemoveOfsObjectsRecursive(c, prefix)
+				} else {
+					logger.Info("Cancel deletion")
+				}
+			} else {
+				err = RemoveOfsObjects("", c, cosUrl, prefix, fo)
+			}
 		} else {
 			if fo.Operation.AllVersions {
 				err = RemoveCosObjectVersions(c, cosUrl, fo)
@@ -494,7 +526,42 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 
 	return nil
 }
+func RemoveOfsObjectsRecursive(c *cos.Client, prefix string) error {
+	query := &url.Values{}
+	query.Add("recursive", "")
+	opt := &cos.ObjectDeleteOptions{
+		XOptionQuery: query,
+	}
+	isTruncated := true
+	marker := ""
+	var err error
+	var objects []cos.Object
+	if prefix == "" {
+		for isTruncated {
+			var commonPrefixes []string
+			err, objects, commonPrefixes, isTruncated, marker = getOfsObjectListForLs(c, prefix, marker, 0, false)
 
+			if err != nil {
+				return fmt.Errorf("list objects error : %v", err)
+			}
+
+			for _, object := range objects {
+				key, _ := url.QueryUnescape(object.Key)
+				_, err = c.Object.Delete(context.Background(), key)
+			}
+
+			if len(commonPrefixes) > 0 {
+				for _, commonPrefix := range commonPrefixes {
+					commonPrefix, _ = url.QueryUnescape(commonPrefix)
+					_, err = c.Object.Delete(context.Background(), commonPrefix, opt)
+				}
+			}
+		}
+	} else {
+		_, err = c.Object.Delete(context.Background(), prefix, opt)
+	}
+	return err
+}
 func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix string, fo *FileOperations) error {
 	var err error
 	isTruncated := true
