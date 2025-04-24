@@ -102,5 +102,16 @@ func TestCatCmd(t *testing.T) {
 			e := cmd.Execute()
 			So(e, ShouldBeNil)
 		})
+		Convey("retry", func() {
+			Convey("retry-5xx", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"cat", "cos://cos-sdk-err-retry-1253960454/500", "-e", "cos.ap-chengdu.myqcloud.com"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+		})
 	})
 }

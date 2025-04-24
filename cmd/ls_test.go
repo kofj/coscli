@@ -195,5 +195,16 @@ func TestLsCmd(t *testing.T) {
 				So(e, ShouldBeError)
 			})
 		})
+		Convey("retry", func() {
+			Convey("retry-5xx", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"ls", "cos://cos-sdk-err-retry-1253960454/500", "-e", "cos.ap-chengdu.myqcloud.com"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+		})
 	})
 }

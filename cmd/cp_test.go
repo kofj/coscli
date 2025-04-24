@@ -526,5 +526,17 @@ func TestCpCmd(t *testing.T) {
 				})
 			})
 		})
+		Convey("retry", func() {
+			Convey("retry-5xx", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"cp", "cos://cos-sdk-err-retry-1253960454/500", "./test/", "-e", "cos.ap-chengdu.myqcloud.com"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+		})
+
 	})
 }
