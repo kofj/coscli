@@ -285,6 +285,7 @@ func getLocalFileKeys(fileUrl StorageUrl, keys map[string]string, fo *FileOperat
 	return nil
 }
 
+// ReadLocalFileKeys 读取本地文件keys
 func ReadLocalFileKeys(chFiles <-chan fileInfoType, chFinish chan<- error, keys map[string]string, fo *FileOperations) {
 	totalCount := 0
 	fmt.Printf("\n")

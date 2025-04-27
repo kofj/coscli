@@ -15,6 +15,7 @@ import (
 
 var logName = "coscli.log"
 
+// InitLoggerWithDir 初始化日志路径
 func InitLoggerWithDir(path string) {
 	if path == "" {
 		var err error

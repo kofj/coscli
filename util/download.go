@@ -15,6 +15,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
+// DownloadOptions is a struct used to configure download options.
 type DownloadOptions struct {
 	RateLimiting float32
 	PartSize     int64
@@ -23,6 +24,14 @@ type DownloadOptions struct {
 	SnapshotPath string
 }
 
+// Download downloads a file from the specified COS URL to the specified file URL.
+//
+// c: *cos.Client - the COS client to use for downloading.
+// cosUrl: StorageUrl - the COS URL of the file to download.
+// fileUrl: StorageUrl - the URL where the file should be saved.
+// fo: *FileOperations - the operations object to handle file operations.
+//
+// Returns an error if the download fails.
 func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) error {
 
 	startT := time.Now().UnixNano() / 1000 / 1000

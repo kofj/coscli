@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+// SyncUpload uploads a file to COS.
+// Parameters:
+// - c: *cos.Client
+// - fileUrl: StorageUrl
+// - cosUrl: StorageUrl
+// - fo: *FileOperations
 func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	keysToDelete := make(map[string]string)

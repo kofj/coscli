@@ -20,6 +20,7 @@ var deleteMarkerCnt int
 var totalCnt int
 var totalSize int64
 
+// DuObjects 统计cos对象
 func DuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duType int, allVersions bool) error {
 	// 根据s.Header判断是否是融合桶或者普通桶
 	s, err := c.Bucket.Head(context.Background())
@@ -243,6 +244,7 @@ func printStatistic(allVersions bool) {
 
 }
 
+// CosInfo cos文件信息
 type CosInfo struct {
 	Name       string
 	Size       int64

@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+// CosCopy copies a file from srcClient to destClient using the provided URLs and FileOperations.
+// srcClient and destClient are *cos.Client instances.
+// srcUrl and destUrl are StorageUrl instances.
+// fo is a *FileOperations instance.
 func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	startT := time.Now().UnixNano() / 1000 / 1000
 

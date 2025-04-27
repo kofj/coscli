@@ -12,6 +12,7 @@ type Config struct {
 	Buckets []Bucket `yaml:"buckets"`
 }
 
+// BaseCfg 基础配置
 type BaseCfg struct {
 	SecretID            string `yaml:"secretid"`
 	SecretKey           string `yaml:"secretkey"`
@@ -23,6 +24,7 @@ type BaseCfg struct {
 	DisableEncryption   string `yaml:"disableencryption"`
 }
 
+// Bucket 桶信息
 type Bucket struct {
 	Name     string `yaml:"name"`
 	Alias    string `yaml:"alias"`
@@ -30,6 +32,8 @@ type Bucket struct {
 	Endpoint string `yaml:"endpoint"`
 	Ofs      bool   `yaml:"ofs"`
 }
+
+// Param 命令传入参数
 type Param struct {
 	SecretID            string
 	SecretKey           string
@@ -40,17 +44,20 @@ type Param struct {
 	CloseAutoSwitchHost string
 }
 
+// UploadInfo 上传文件信息
 type UploadInfo struct {
 	Key       string `xml:"Key,omitempty"`
 	UploadID  string `xml:"UploadId,omitempty"`
 	Initiated string `xml:"Initiated,omitempty"`
 }
 
+// fileInfoType 文件信息
 type fileInfoType struct {
 	filePath string
 	dir      string
 }
 
+// objectInfoType cos对象信息
 type objectInfoType struct {
 	prefix       string
 	relativeKey  string
@@ -60,6 +67,7 @@ type objectInfoType struct {
 
 type CpType int
 
+// FileOperations 文件操作配置
 type FileOperations struct {
 	Operation   Operation
 	Monitor     *FileProcessMonitor
@@ -73,6 +81,7 @@ type FileOperations struct {
 	BucketType  string
 }
 
+// Operation 文件操作参数
 type Operation struct {
 	Recursive         bool
 	Filters           []FilterOptionType
@@ -105,16 +114,19 @@ type Operation struct {
 	Move              bool
 }
 
+// ErrOutput 错误输出信息
 type ErrOutput struct {
 	Path       string
 	outputFile *os.File
 }
 
+// FilterOptionType 正则规则信息
 type FilterOptionType struct {
 	name    string
 	pattern string
 }
 
+// Meta cos元数据信息
 type Meta struct {
 	CacheControl       string
 	ContentDisposition string
@@ -129,6 +141,7 @@ type Meta struct {
 	MetaChange  bool
 }
 
+// LsCounter ls统计信息
 type LsCounter struct {
 	TotalLimit int
 	RenderNum  int

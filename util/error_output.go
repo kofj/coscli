@@ -52,6 +52,7 @@ func writeError(errString string, fo *FileOperations) {
 	outputMu.Unlock()
 }
 
+// CloseErrorOutputFile closes the error output file if it is not nil.
 func CloseErrorOutputFile(fo *FileOperations) {
 	if fo.ErrOutput.outputFile != nil {
 		defer fo.ErrOutput.outputFile.Close()

@@ -14,6 +14,7 @@ import (
 
 var succeedNum, failedNum, errTypeNum int
 
+// RestoreObjects 取回cos对象
 func RestoreObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
 	// 根据s.Header判断是否是融合桶或者普通桶
 	s, err := c.Bucket.Head(context.Background())

@@ -28,6 +28,7 @@ var processTickInterval int64 = 5
 var clearStrLen int = 0
 var clearStr string = strings.Repeat(" ", clearStrLen)
 
+// FileProcessMonitor 文件传输信息
 type FileProcessMonitor struct {
 	TotalSize      int64
 	totalNum       int64
@@ -49,6 +50,7 @@ type FileProcessMonitor struct {
 	lastSnapTime   time.Time
 }
 
+// FileProcessMonitorSnap 文件上传监控信息
 type FileProcessMonitorSnap struct {
 	transferSize  int64
 	skipSize      int64

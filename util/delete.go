@@ -85,6 +85,8 @@ func deleteKeys(c *cos.Client, keysToDelete map[string]string, destUrl StorageUr
 	return nil
 }
 
+// DeleteCosObjects deletes multiple COS objects based on the provided keysToDelete map.
+// It returns an error if any of the operations fail.
 func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl StorageUrl, fo *FileOperations) error {
 
 	errCount := 0
@@ -156,6 +158,16 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 	return nil
 }
 
+// DeleteCosObjectVersions deletes multiple object versions in a COS bucket.
+//
+// Parameters:
+// - c: *cos.Client - the COS client to use
+// - keysToDelete: []cos.Object - the keys of the object versions to delete
+// - cosUrl: StorageUrl - the COS bucket URL
+// - fo: *FileOperations - the file operations object
+//
+// Returns:
+// - error: an error if the deletion fails, otherwise nil
 func DeleteCosObjectVersions(c *cos.Client, keysToDelete []cos.Object, cosUrl StorageUrl, fo *FileOperations) error {
 
 	errCount := 0

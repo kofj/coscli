@@ -13,6 +13,7 @@ const (
 	CamUrl = "http://metadata.tencentyun.com/meta-data/cam/security-credentials/"
 )
 
+// Data cam接口返回格式
 type Data struct {
 	TmpSecretId  string `json:"TmpSecretId"`
 	TmpSecretKey string `json:"TmpSecretKey"`
@@ -24,6 +25,7 @@ type Data struct {
 
 var data Data
 
+// CamAuth 使用实例角色名获取cam授权
 func CamAuth(roleName string) (data Data, err error) {
 	if roleName == "" {
 		return data, fmt.Errorf("Get cam auth error : roleName not set")

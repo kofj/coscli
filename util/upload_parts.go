@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// ListParts 列出分块上传任务
 func ListParts(c *cos.Client, cosUrl StorageUrl, limit int, uploadId string) error {
 	// 查询上传中的分块任务是否存在
 	uploadExist, err := CheckUploadExist(c, cosUrl, uploadId)

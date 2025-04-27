@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+// GetCosKeys reads keys from a COS (Cloud Object Storage) URL and processes them.
+//
+// c: *cos.Client - the COS client
+// cosUrl: StorageUrl - the COS URL to read keys from
+// keys: map[string]string - the keys to process
+// fo: *FileOperations - the file operations object
+//
+// Returns an error if any of the operations fail.
 func GetCosKeys(c *cos.Client, cosUrl StorageUrl, keys map[string]string, fo *FileOperations) error {
 
 	chFiles := make(chan objectInfoType, ChannelSize)
@@ -24,6 +32,12 @@ func GetCosKeys(c *cos.Client, cosUrl StorageUrl, keys map[string]string, fo *Fi
 	return nil
 }
 
+// ReadCosKeys reads keys from a COS bucket and sends them to the provided channels.
+//
+// keys: A map to store the keys read from COS.
+// cosUrl: The URL of the COS bucket.
+// chObjects: A channel to receive object info types.
+// chFinish: A channel to send errors if the number of keys exceeds the maximum allowed.
 func ReadCosKeys(keys map[string]string, cosUrl StorageUrl, chObjects <-chan objectInfoType, chFinish chan<- error) {
 	totalCount := 0
 	fmt.Printf("\n")
@@ -41,6 +55,9 @@ func ReadCosKeys(keys map[string]string, cosUrl StorageUrl, chObjects <-chan obj
 	chFinish <- nil
 }
 
+// CheckCosPathType checks if the given path is a directory or not.
+// It takes a *cos.Client, a prefix string, a limit int, and a *FileOperations as parameters.
+// It returns a bool indicating whether the path is a directory and an error if any occurs.
 func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperations) (isDir bool, err error) {
 	if prefix == "" {
 		return true, nil
@@ -75,6 +92,11 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 	return isDir, nil
 }
 
+// CheckCosObjectExist checks if an object exists in the COS bucket with the given prefix and IDs.
+// c: *cos.Client, the COS client to use.
+// prefix: string, the prefix of the object to check.
+// id: ...string, the IDs of the object to check.
+// Returns: (exist bool, err error), whether the object exists and an error if any.
 func CheckCosObjectExist(c *cos.Client, prefix string, id ...string) (exist bool, err error) {
 	if prefix == "" {
 		return false, nil
@@ -87,6 +109,11 @@ func CheckCosObjectExist(c *cos.Client, prefix string, id ...string) (exist bool
 	return exist, nil
 }
 
+// CheckUploadExist checks if the upload with the given ID exists in the COS client.
+// c: *cos.Client - the COS client instance.
+// cosUrl: StorageUrl - the COS storage URL.
+// uploadId: string - the upload ID to check for.
+// Returns: (exist bool, err error) - whether the upload exists and any error encountered.
 func CheckUploadExist(c *cos.Client, cosUrl StorageUrl, uploadId string) (exist bool, err error) {
 	var uploads []struct {
 		Key          string
@@ -109,6 +136,10 @@ func CheckUploadExist(c *cos.Client, cosUrl StorageUrl, uploadId string) (exist 
 	return false, nil
 }
 
+// CheckDeleteMarkerExist checks if a delete marker exists for the given version ID.
+// c: *cos.Client - the COS client to use for the request.
+// cosUrl: StorageUrl - the COS storage URL to check.
+// versionId: string - the version ID to check for the delete marker.
 func CheckDeleteMarkerExist(c *cos.Client, cosUrl StorageUrl, versionId string) (exist bool, err error) {
 
 	isTruncated := true
@@ -256,7 +287,7 @@ func getCosObjectVersionListForLs(c *cos.Client, cosUrl StorageUrl, versionIdMar
 	return
 }
 
-// 获取所有文件和目录
+// GetFilesAndDirs 获取所有文件和目录
 func GetFilesAndDirs(c *cos.Client, cosDir string, nextMarker string, include string, exclude string) (files []string, err error) {
 	objects, _, _, commonPrefixes, err := GetObjectsListIterator(c, cosDir, nextMarker, include, exclude)
 	if err != nil {

@@ -68,6 +68,7 @@ func filterSingleStr(v, p string, include bool) bool {
 	}
 }
 
+// GetFilter 获取筛选规则
 func GetFilter(include, exclude string) (bool, []FilterOptionType) {
 	filters := make([]FilterOptionType, 0)
 

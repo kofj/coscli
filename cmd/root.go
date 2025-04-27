@@ -31,6 +31,7 @@ var rootCmd = &cobra.Command{
 	Version: util.Version,
 }
 
+// Execute 执行
 func Execute() error {
 	rootCmd.SilenceErrors = true
 	rootCmd.SilenceUsage = true

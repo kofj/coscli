@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// StorageUrl is an interface that represents a URL for storage operations.
 type StorageUrl interface {
 	IsCosUrl() bool
 	IsFileUrl() bool
@@ -17,24 +18,29 @@ type StorageUrl interface {
 	UpdateUrlStr(newUrlStr string)
 }
 
+// CosUrl represents the URL for an object in a COS (Cloud Object Storage) system.
 type CosUrl struct {
 	urlStr string
 	Bucket string
 	Object string
 }
 
+// FileUrl represents the URL of a file in the COS service.
 type FileUrl struct {
 	urlStr string
 }
 
+// IsCosUrl checks if the provided URL is a COS URL.
 func (cu CosUrl) IsCosUrl() bool {
 	return true
 }
 
+// IsFileUrl checks if the provided URL is a Local URL.
 func (cu CosUrl) IsFileUrl() bool {
 	return false
 }
 
+// ToString converts the CosUrl to a string representation.
 func (cu CosUrl) ToString() string {
 	if cu.Object == "" {
 		return fmt.Sprintf("%s%s", SchemePrefix, cu.Bucket)
@@ -42,27 +48,38 @@ func (cu CosUrl) ToString() string {
 	return fmt.Sprintf("%s%s/%s", SchemePrefix, cu.Bucket, cu.Object)
 }
 
+// UpdateUrlStr updates the URL string of a CosUrl instance and
+// subsequently parses the bucket and object associated with the URL.
 func (cu *CosUrl) UpdateUrlStr(urlStr string) {
 	cu.urlStr = urlStr
 	cu.parseBucketObject()
 }
 
+// IsCosUrl checks if a FileUrl instance represents a CosUrl.
+// This implementation always returns false for FileUrl.
 func (fu FileUrl) IsCosUrl() bool {
 	return false
 }
 
+// IsFileUrl checks if a FileUrl instance represents a file URL.
+// This implementation always returns true for FileUrl.
 func (fu FileUrl) IsFileUrl() bool {
 	return true
 }
 
+// ToString converts the FileUrl structure to its URL string representation.
 func (fu FileUrl) ToString() string {
 	return fu.urlStr
 }
 
+// UpdateUrlStr updates the URL string of a FileUrl instance.
 func (fu *FileUrl) UpdateUrlStr(urlStr string) {
 	fu.urlStr = urlStr
 }
 
+// Init initializes a CosUrl instance using the provided URL string and
+// performs validation by parsing the bucket/object and checking their correctness.
+// Returns an error if parsing or validation fails.
 func (cu *CosUrl) Init(urlStr string) error {
 	cu.urlStr = urlStr
 	if err := cu.parseBucketObject(); err != nil {
@@ -98,6 +115,10 @@ func (cu *CosUrl) checkBucketObject() error {
 	return nil
 }
 
+// Init initializes a FileUrl instance using the provided URL string.
+// If the URL string starts with "~/", it expands it to the current
+// user's home directory path. If the home directory cannot be determined,
+// it returns an error. Otherwise, it updates the FileUrl's URL string.
 func (fu *FileUrl) Init(urlStr string) error {
 	if len(urlStr) >= 2 && urlStr[:2] == "~"+string(os.PathSeparator) {
 		homeDir := currentHomeDir()
@@ -132,6 +153,12 @@ func currentHomeDir() string {
 	return homeDir
 }
 
+// FormatUrl takes a URL string as input and determines whether it should
+// be treated as a CosUrl or a FileUrl. If the URL starts with a specific
+// scheme prefix (e.g., "cos://"), it is treated as a CosUrl. If not,
+// it is treated as a FileUrl. The function initializes the corresponding
+// object (CosUrl or FileUrl) and returns it. In case of any initialization
+// errors, it returns an error.
 func FormatUrl(urlStr string) (StorageUrl, error) {
 	if strings.HasPrefix(strings.ToLower(urlStr), SchemePrefix) {
 		var CosUrl CosUrl

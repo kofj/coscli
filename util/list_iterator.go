@@ -6,6 +6,7 @@ import (
 	"net/url"
 )
 
+// GetObjectsListIterator 获取cos对象列表
 func GetObjectsListIterator(c *cos.Client, prefix, marker string, include, exclude string) (objects []cos.Object,
 	isTruncated bool, nextMarker string, commonPrefixes []string, err error) {
 	opt := &cos.BucketGetOptions{

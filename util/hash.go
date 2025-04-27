@@ -14,6 +14,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
+// ShowHash 获取cos对象hash
 func ShowHash(c *cos.Client, path string, hashType string) (h string, b string, resp *cos.Response, err error) {
 	opt := &cos.ObjectHeadOptions{
 		IfModifiedSince:       "",

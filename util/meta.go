@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// MetaStringToHeader converts a metadata string into an HTTP header.
+// The metadata string should be in the format of key-value pairs separated by '#' and each pair should be separated by ','.
+// For example: "key1=value1#key2=value2"
 func MetaStringToHeader(meta string) (result Meta, err error) {
 	if meta == "" {
 		return

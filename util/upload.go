@@ -17,11 +17,12 @@ var (
 	mu sync.Mutex
 )
 
-// 定义一个结构体类型
+// Counter 传输大小
 type Counter struct {
 	TransferSize int64
 }
 
+// Upload 上传文件
 func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
 	startT := time.Now().UnixNano() / 1000 / 1000
 	localPath := fileUrl.ToString()

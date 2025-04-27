@@ -131,6 +131,8 @@ func getOfsObjectListForLs(c *cos.Client, prefix string, marker string, limit in
 	return
 }
 
+// GetOfsKeys reads the keys from the COS URL and returns an error if any occurs.
+// c: *cos.Client, cosUrl: StorageUrl, keys: map[string]string, fo: *FileOperations
 func GetOfsKeys(c *cos.Client, cosUrl StorageUrl, keys map[string]string, fo *FileOperations) error {
 
 	chFiles := make(chan objectInfoType, ChannelSize)

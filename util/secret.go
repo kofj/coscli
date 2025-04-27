@@ -15,6 +15,8 @@ const (
 	AesBlockSize = 16
 )
 
+// NewECBDecrypter returns a BlockMode which decrypts in electronic code book
+// mode, using the given Block.
 func DecryptSecret(encode string) (decryptStr string, err error) {
 	decode, err := base64.StdEncoding.DecodeString(encode)
 	if err != nil {
@@ -26,6 +28,8 @@ func DecryptSecret(encode string) (decryptStr string, err error) {
 	return decryptStr, err
 }
 
+// CryptBlocks encrypts the src data into the dst buffer using the ECB mode of the cipher.
+// It assumes that the src data is a multiple of the block size.
 func EncryptSecret(src string) (encode string, err error) {
 	tool := NewAesTool([]byte(AesKey), AesBlockSize, ECB)
 	encrypt, err := tool.Encrypt([]byte(src))
@@ -38,7 +42,7 @@ const (
 	CBC = 2
 )
 
-// AES ECB模式的加密解密
+// AesTool is a struct representing an AES ECB mode encryption and decryption tool.
 type AesTool struct {
 	// 128 192  256位的其中一个 长度 对应分别是 16 24  32字节长度
 	Key       []byte
@@ -46,6 +50,10 @@ type AesTool struct {
 	Mode      int
 }
 
+// NewAesTool creates a new AesTool with the specified key, block size, and mode.
+// key: the encryption key.
+// blockSize: the block size for the AES algorithm.
+// mode: the mode of operation for the AES algorithm (e.g., ECB).
 func NewAesTool(key []byte, blockSize int, mode int) *AesTool {
 	return &AesTool{Key: key, BlockSize: blockSize, Mode: mode}
 }
@@ -74,6 +82,12 @@ func (this *AesTool) unPadding(src []byte) []byte {
 	return nil
 }
 
+// Encrypt encrypts the given source data using AES encryption with the specified key.
+// Parameters:
+// - src: The source data to be encrypted.
+// Returns:
+// - []byte: The encrypted data.
+// - error: If an error occurs during encryption, this will be returned.
 func (this *AesTool) Encrypt(src []byte) ([]byte, error) {
 	var encryptData []byte
 	// key只能是 16 24 32长度
@@ -108,6 +122,15 @@ func (this *AesTool) Encrypt(src []byte) ([]byte, error) {
 	return encryptData, nil
 
 }
+
+// Decrypt decrypts the given source bytes using AES.
+//
+// Parameters:
+// - src: The encrypted bytes to be decrypted.
+//
+// Returns:
+// - res: The decrypted bytes.
+// - err: An error if decryption fails.
 func (this *AesTool) Decrypt(src []byte) (res []byte, err error) {
 	defer func() {
 		if err1 := recover(); err1 != nil {
