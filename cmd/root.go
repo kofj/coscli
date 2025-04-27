@@ -49,6 +49,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&param.Protocol, "protocol", "p", "", "config protocol")
 	rootCmd.PersistentFlags().BoolVarP(&initSkip, "init-skip", "", false, "skip config init")
 	rootCmd.PersistentFlags().StringVarP(&logPath, "log-path", "", "", "coscli log dir")
+	rootCmd.PersistentFlags().StringVarP(&param.CloseAutoSwitchHost, "close_auto_switch_host", "", "", "Close Auto Switch Host")
 }
 
 func initConfig() {

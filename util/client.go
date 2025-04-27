@@ -167,8 +167,14 @@ func CreateClient(config *Config, param *Param, bucketIDName string) (client *co
 		},
 	})
 
+	// 切换域名开关，优先使用参数中的开关，若为空再使用配置文件中的开关
+	CloseAutoSwitchHost := param.CloseAutoSwitchHost
+	if CloseAutoSwitchHost == "" {
+		CloseAutoSwitchHost = config.Base.CloseAutoSwitchHost
+	}
+
 	// 切换备用域名开关
-	if config.Base.CloseAutoSwitchHost == "true" {
+	if CloseAutoSwitchHost == "true" {
 		client.Conf.RetryOpt.AutoSwitchHost = false
 	}
 

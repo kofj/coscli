@@ -31,12 +31,13 @@ type Bucket struct {
 	Ofs      bool   `yaml:"ofs"`
 }
 type Param struct {
-	SecretID     string
-	SecretKey    string
-	SessionToken string
-	Endpoint     string
-	Customized   bool
-	Protocol     string
+	SecretID            string
+	SecretKey           string
+	SessionToken        string
+	Endpoint            string
+	Customized          bool
+	Protocol            string
+	CloseAutoSwitchHost string
 }
 
 type UploadInfo struct {
