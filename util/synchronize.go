@@ -178,6 +178,7 @@ func skipCopy(srcClient, destClient *cos.Client, object, destPath string) (bool,
 	return false, nil
 }
 
+// InitSnapshotDb 初始化快照db
 func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	if fo.Operation.SnapshotPath == "" {
 		return nil
@@ -201,6 +202,7 @@ func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	return nil
 }
 
+// SyncDownload 同步下载
 func SyncDownload(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	keysToDelete := make(map[string]string)
@@ -228,6 +230,7 @@ func SyncDownload(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *File
 	return nil
 }
 
+// SyncCosCopy 同步copy
 func SyncCosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	keysToDelete := make(map[string]string)

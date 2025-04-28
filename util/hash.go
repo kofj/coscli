@@ -44,6 +44,7 @@ func ShowHash(c *cos.Client, path string, hashType string) (h string, b string, 
 	return h, b, resp, nil
 }
 
+// CalculateHash 计算本地文件MD5或crc64
 func CalculateHash(path string, hashType string) (h string, b string, err error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -78,6 +79,7 @@ func CalculateHash(path string, hashType string) (h string, b string, err error)
 	return h, b, nil
 }
 
+// GetHead 获取cos对象请求头
 func GetHead(c *cos.Client, cosPath string, id ...string) (*cos.Response, error) {
 	headOpt := &cos.ObjectHeadOptions{
 		IfModifiedSince:       "",

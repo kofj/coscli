@@ -17,10 +17,7 @@ import (
 	cosgo "github.com/tencentyun/cos-go-sdk-v5"
 )
 
-// ObjectMoveOptions
-//1. 首先源地址 /ofs
-//2. 目标地址 https://tina-coscli-test-1253960454.cos.ap-chengdu.myqcloud.com/x?rename
-//3. header头部
+// ObjectMoveOptions 重命名ofs对象请求头 1. 首先源地址 /ofs 2. 目标地址 https://tina-coscli-test-1253960454.cos.ap-chengdu.myqcloud.com/x?rename 3. header头部
 type ObjectMoveOptions struct {
 	*cosgo.BucketHeadOptions
 	*cosgo.ACLHeaderOptions

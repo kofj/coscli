@@ -106,6 +106,7 @@ func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <
 	chError <- nil
 }
 
+// SingleUpload 单文件上传
 func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl StorageUrl) (skip bool, rErr error, isDir bool, size, transferSize int64, msg string) {
 	skip = false
 	rErr = nil

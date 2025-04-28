@@ -84,6 +84,7 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) err
 	return nil
 }
 
+// TryRestoreObject 重试回热对象
 func TryRestoreObject(c *cos.Client, bucketName, objectKey string, days int, mode string) (resp *cos.Response, err error) {
 
 	logger.Infof("Restore cos://%s/%s\n", bucketName, objectKey)

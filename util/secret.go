@@ -15,8 +15,7 @@ const (
 	AesBlockSize = 16
 )
 
-// NewECBDecrypter returns a BlockMode which decrypts in electronic code book
-// mode, using the given Block.
+// DecryptSecret 解密秘钥
 func DecryptSecret(encode string) (decryptStr string, err error) {
 	decode, err := base64.StdEncoding.DecodeString(encode)
 	if err != nil {
@@ -28,8 +27,7 @@ func DecryptSecret(encode string) (decryptStr string, err error) {
 	return decryptStr, err
 }
 
-// CryptBlocks encrypts the src data into the dst buffer using the ECB mode of the cipher.
-// It assumes that the src data is a multiple of the block size.
+// EncryptSecret 加密秘钥
 func EncryptSecret(src string) (encode string, err error) {
 	tool := NewAesTool([]byte(AesKey), AesBlockSize, ECB)
 	encrypt, err := tool.Encrypt([]byte(src))

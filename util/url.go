@@ -41,7 +41,7 @@ func GenCiURL(bucketIDName string, protocol string, endpoint string) string {
 	return c
 }
 
-// 根据函数参数生成URL
+// CreateURL 根据函数参数生成URL
 func CreateURL(idName string, protocol string, endpoint string, customized bool) *cos.BaseURL {
 	b := GenBucketURL(idName, protocol, endpoint, customized)
 	s := GenServiceURL(protocol, endpoint)

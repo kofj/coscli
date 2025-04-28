@@ -49,6 +49,7 @@ func MatchCosPattern(objects []cos.Object, pattern string, include bool) []cos.O
 	return res
 }
 
+// MatchUploadPattern 匹配上传文件名
 func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []UploadInfo {
 	res := make([]UploadInfo, 0)
 	for _, u := range uploads {

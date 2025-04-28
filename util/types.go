@@ -7,6 +7,7 @@ import (
 	"os"
 )
 
+// Config coscli配置文件
 type Config struct {
 	Base    BaseCfg  `yaml:"base"`
 	Buckets []Bucket `yaml:"buckets"`

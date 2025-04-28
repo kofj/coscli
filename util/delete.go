@@ -295,6 +295,7 @@ func confirmOfs(prefix string, fo *FileOperations, cosUrl StorageUrl) bool {
 	return true
 }
 
+// DeleteLocalFiles 删除本地文件
 func DeleteLocalFiles(keysToDelete map[string]string, fileUrl StorageUrl, fo *FileOperations) error {
 	var sortList []string
 	for key, _ := range keysToDelete {
@@ -452,6 +453,7 @@ func moveFileToPath(srcName, destName string) error {
 	}
 }
 
+// RemoveObjects 删除cos对象
 func RemoveObjects(args []string, fo *FileOperations) error {
 	for _, arg := range args {
 
@@ -538,6 +540,8 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 
 	return nil
 }
+
+// RemoveOfsObjectsRecursive 删除ofs对象
 func RemoveOfsObjectsRecursive(c *cos.Client, prefix string) error {
 	query := &url.Values{}
 	query.Add("recursive", "")
@@ -574,6 +578,8 @@ func RemoveOfsObjectsRecursive(c *cos.Client, prefix string) error {
 	}
 	return err
 }
+
+// RemoveOfsObjects 删除ofs对象
 func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix string, fo *FileOperations) error {
 	var err error
 	isTruncated := true
@@ -639,6 +645,7 @@ func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix st
 	return nil
 }
 
+// RemoveCosObjects 删除cos对象
 func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	var objects []cos.Object
@@ -674,6 +681,7 @@ func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileO
 	return nil
 }
 
+// RemoveCosObjectVersions 删除cos对象历史版本
 func RemoveCosObjectVersions(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	var versions []cos.ListVersionsResultVersion
@@ -712,6 +720,7 @@ func RemoveCosObjectVersions(c *cos.Client, cosUrl StorageUrl, fo *FileOperation
 	return nil
 }
 
+// RemoveObject 删除单个对象
 func RemoveObject(args []string, fo *FileOperations) error {
 	for _, arg := range args {
 
@@ -768,6 +777,7 @@ func RemoveObject(args []string, fo *FileOperations) error {
 	return nil
 }
 
+// RemoveObjectOrVersion 删除对象单个版本
 func RemoveObjectOrVersion(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	cosPath := getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
@@ -832,6 +842,7 @@ func RemoveObjectOrVersion(c *cos.Client, cosUrl StorageUrl, fo *FileOperations)
 	return nil
 }
 
+// RemoveBucket 删除cos桶
 func RemoveBucket(bucketIDName string, c *cos.Client) error {
 
 	_, err := c.Bucket.Delete(context.Background())

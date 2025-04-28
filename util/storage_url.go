@@ -182,7 +182,7 @@ func getCosUrl(bucket string, object string) string {
 	return cosUrl.ToString()
 }
 
-// 格式化上传操作cos路径及local路径
+// FormatUploadPath 格式化上传操作cos路径及local路径
 func FormatUploadPath(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) error {
 	localPath := fileUrl.ToString()
 	if localPath == "" {
@@ -222,7 +222,7 @@ func FormatUploadPath(fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations)
 	return nil
 }
 
-// 格式化下载操作cos路径及local路径
+// FormatDownloadPath 格式化下载操作cos路径及local路径
 func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations, c *cos.Client) error {
 	localPath := fileUrl.ToString()
 	if localPath == "" {
@@ -299,7 +299,7 @@ func FormatDownloadPath(cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperation
 	return nil
 }
 
-// 格式化copy操作src路径及dest路径
+// FormatCopyPath 格式化copy操作src路径及dest路径
 func FormatCopyPath(srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations, srcClient *cos.Client) error {
 	srcPath := srcUrl.(*CosUrl).Object
 	destPath := destUrl.(*CosUrl).Object

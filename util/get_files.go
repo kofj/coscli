@@ -303,6 +303,7 @@ func ReadLocalFileKeys(chFiles <-chan fileInfoType, chFinish chan<- error, keys 
 	chFinish <- nil
 }
 
+// GetFileList 获取文件列表
 func GetFileList(strPath string, chFiles chan<- fileInfoType, chFinish chan<- error, fo *FileOperations) {
 	defer close(chFiles)
 	err := getFileList(strPath, chFiles, fo)

@@ -254,6 +254,7 @@ type CosInfo struct {
 var dirs []CosInfo
 var files []CosInfo
 
+// LsAndDuObjects 列出一级目录并统计文件个数及大小
 func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType) error {
 	var err error
 	var objects []cos.Object

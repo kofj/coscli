@@ -340,6 +340,7 @@ func (fpm *FileProcessMonitor) getSubject() string {
 	}
 }
 
+// GetFinishInfo 获取传输完成信息
 func (fpm *FileProcessMonitor) GetFinishInfo() string {
 	snap := fpm.getSnapshot()
 	if fpm.seekAheadEnd && fpm.seekAheadError == nil {
