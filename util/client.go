@@ -103,9 +103,15 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 		client = cos.NewClient(url, httpClient)
 	}
 
+	// 切换域名开关，优先使用参数中的开关，若为空再使用配置文件中的开关
+	CloseAutoSwitchHost := param.CloseAutoSwitchHost
+	if CloseAutoSwitchHost == "" {
+		CloseAutoSwitchHost = config.Base.CloseAutoSwitchHost
+	}
+
 	// 切换备用域名开关
-	if config.Base.CloseAutoSwitchHost == "true" {
-		client.Conf.RetryOpt.AutoSwitchHost = false
+	if CloseAutoSwitchHost == "false" {
+		client.Conf.RetryOpt.AutoSwitchHost = true
 	}
 
 	// 服务端错误重试（默认10次，每次间隔1s）
@@ -186,8 +192,8 @@ func CreateClient(config *Config, param *Param, bucketIDName string) (client *co
 	}
 
 	// 切换备用域名开关
-	if CloseAutoSwitchHost == "true" {
-		client.Conf.RetryOpt.AutoSwitchHost = false
+	if CloseAutoSwitchHost == "false" {
+		client.Conf.RetryOpt.AutoSwitchHost = true
 	}
 
 	// 错误重试
