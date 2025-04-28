@@ -4,13 +4,12 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
-	"reflect"
-	"testing"
-	"time"
-
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"reflect"
+	"testing"
+	"time"
 )
 
 func TestBucketTaggingCmd(t *testing.T) {
@@ -34,8 +33,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
-			time.Sleep(1)
 			Convey("get", func() {
+				time.Sleep(1)
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-tagging", "--method", "get",
