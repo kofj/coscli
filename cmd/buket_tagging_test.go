@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
@@ -33,6 +34,7 @@ func TestBucketTaggingCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
+			time.Sleep(1)
 			Convey("get", func() {
 				clearCmd()
 				cmd := rootCmd
