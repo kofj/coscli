@@ -34,7 +34,7 @@ func TestBucketTaggingCmd(t *testing.T) {
 				So(e, ShouldBeNil)
 			})
 			Convey("get", func() {
-				time.Sleep(1)
+				time.Sleep(time.Second)
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-tagging", "--method", "get",
