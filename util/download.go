@@ -238,7 +238,11 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 
 	var resp *cos.Response
 
-	resp, err = c.Object.Download(context.Background(), object, localFilePath, opt, VersionId...)
+	if fo.BucketType == "OFS" {
+		resp, err = c.Object.Download(context.Background(), object, localFilePath, opt)
+	} else {
+		resp, err = c.Object.Download(context.Background(), object, localFilePath, opt, VersionId...)
+	}
 
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "verification failed, want:") {

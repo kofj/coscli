@@ -196,7 +196,11 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 		opt.OptCopy.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
 	}
 
-	_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt, VersionId...)
+	if fo.BucketType == "OFS" {
+		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt)
+	} else {
+		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt, VersionId...)
+	}
 
 	if err != nil {
 		rErr = err
