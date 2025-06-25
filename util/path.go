@@ -131,7 +131,7 @@ func CheckPath(fileUrl StorageUrl, fo *FileOperations, pathType string) error {
 	}
 
 	if strings.Index(absPath, absFileDir) >= 0 {
-		return fmt.Errorf("%s %s is subdirectory of %s", pathType, fo.Operation.SnapshotPath, fileUrl.ToString())
+		return fmt.Errorf("%s %s is subdirectory of %s", pathType, absPath, fileUrl.ToString())
 	}
 	return nil
 }
