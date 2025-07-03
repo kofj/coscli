@@ -113,6 +113,8 @@ type Operation struct {
 	Days              int
 	RestoreMode       string
 	Move              bool
+	SkipDir           bool
+	Update            bool
 }
 
 // ErrOutput 错误输出信息

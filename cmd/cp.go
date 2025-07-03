@@ -55,6 +55,7 @@ Example:
 		disableLongLinks, _ := cmd.Flags().GetBool("disable-long-links")
 		longLinksNums, _ := cmd.Flags().GetInt("long-links-nums")
 		versionId, _ := cmd.Flags().GetString("version-id")
+		skipDir, _ := cmd.Flags().GetBool("skip-dir")
 		move, _ := cmd.Flags().GetBool("move")
 
 		meta, err := util.MetaStringToHeader(metaString)
@@ -118,6 +119,7 @@ Example:
 				LongLinksNums:     longLinksNums,
 				VersionId:         versionId,
 				Move:              move,
+				SkipDir:           skipDir,
 			},
 			Monitor:    &util.FileProcessMonitor{},
 			Config:     &config,
@@ -316,6 +318,7 @@ func init() {
 	cpCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
 	cpCmd.Flags().Int("long-links-nums", 0, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
 	cpCmd.Flags().String("version-id", "", "Downloading a specified version of a file , only available if bucket versioning is enabled.")
+	cpCmd.Flags().Bool("skip-dir", false, "Skip folders during upload.")
 	cpCmd.Flags().Bool("move", false, "Enable migration mode (only available between COS paths), which will delete the source file after it has been successfully copied to the destination path.")
 }
 

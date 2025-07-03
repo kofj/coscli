@@ -127,12 +127,17 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 	msg = fmt.Sprintf("\nUpload %s to %s", localFilePath, getCosUrl(cosUrl.(*CosUrl).Bucket, cosPath))
 	if fileInfo.IsDir() {
 		isDir = true
-		// 在cos创建文件夹
-		_, err = c.Object.Put(context.Background(), cosPath, strings.NewReader(""), nil)
-		if err != nil {
-			rErr = err
-			return
+		if fo.Operation.SkipDir {
+			skip = true
+		} else {
+			// 在cos创建文件夹
+			_, err = c.Object.Put(context.Background(), cosPath, strings.NewReader(""), nil)
+			if err != nil {
+				rErr = err
+			}
 		}
+		return
+
 	} else {
 		size = fileInfo.Size()
 

@@ -59,6 +59,8 @@ Example:
 		longLinksNums, _ := cmd.Flags().GetInt("long-links-nums")
 		backupDir, _ := cmd.Flags().GetString("backup-dir")
 		force, _ := cmd.Flags().GetBool("force")
+		skipDir, _ := cmd.Flags().GetBool("skip-dir")
+		update, _ := cmd.Flags().GetBool("update")
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
@@ -119,6 +121,8 @@ Example:
 				Delete:            delete,
 				BackupDir:         backupDir,
 				Force:             force,
+				SkipDir:           skipDir,
+				Update:            update,
 			},
 			Monitor:   &util.FileProcessMonitor{},
 			Config:    &config,
@@ -320,4 +324,6 @@ func init() {
 	syncCmd.Flags().Bool("long-links-nums", false, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
+	syncCmd.Flags().Bool("skip-dir", false, "Skip folders during upload.")
+	syncCmd.Flags().Bool("update", false, "The upload will only be performed if the target file does not exist, or if the source file's last modified time is later than the target file's.")
 }

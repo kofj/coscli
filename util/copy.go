@@ -155,7 +155,7 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 
 	// 仅sync命令执行skip
 	if fo.Command == CommandSync && !isDir {
-		skip, err = skipCopy(srcClient, destClient, object, destPath)
+		skip, err = skipCopy(srcClient, destClient, object, destPath, fo)
 		if err != nil {
 			rErr = err
 			return
