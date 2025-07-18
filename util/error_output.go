@@ -44,7 +44,11 @@ func writeError(errString string, fo *FileOperations) {
 	}
 
 	outputMu.Lock()
-	_, writeErr := fo.ErrOutput.outputFile.WriteString(errString)
+
+	// 获取当前时间
+	timestamp := time.Now().Format("2006-01-02 15:04:05") // 格式为：YYYY-MM-DD HH:MM:SS
+	logString := "[" + timestamp + "] " + errString       // 拼接时间和错误消息
+	_, writeErr := fo.ErrOutput.outputFile.WriteString(logString)
 
 	if writeErr != nil {
 		logger.Errorf("Failed to write error output file : %v\n", writeErr)
