@@ -16,7 +16,7 @@ import (
 var logName = "coscli.log"
 
 // InitLoggerWithDir 初始化日志路径
-func InitLoggerWithDir(path string) {
+func InitLoggerWithDir(path string, disableLog bool) {
 	if path == "" {
 		var err error
 		path, err = filepath.Abs(filepath.Dir(os.Args[0]))
@@ -43,7 +43,12 @@ func InitLoggerWithDir(path string) {
 	}
 
 	multiWriter := io.MultiWriter(fsWriter, os.Stdout)
-	log.SetOutput(multiWriter)
+	if disableLog {
+		log.SetOutput(io.Discard)
+	} else {
+		log.SetOutput(multiWriter)
+	}
+
 	log.SetLevel(log.InfoLevel)
 	forceColors := true
 	if runtime.GOOS == "windows" {
