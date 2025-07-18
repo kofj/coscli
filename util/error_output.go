@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 )
 
 const (
@@ -22,7 +21,7 @@ var (
 func writeError(errString string, fo *FileOperations) {
 	var err error
 	if fo.ErrOutput.Path == "" {
-		fo.ErrOutput.Path = filepath.Join(fo.Operation.FailOutputPath, time.Now().Format("20060102_150405"))
+		fo.ErrOutput.Path = filepath.Join(fo.Operation.FailOutputPath, fo.OutPutDirName)
 		_, err := os.Stat(fo.ErrOutput.Path)
 		if os.IsNotExist(err) {
 			err := os.MkdirAll(fo.ErrOutput.Path, 0755)
@@ -45,10 +44,7 @@ func writeError(errString string, fo *FileOperations) {
 
 	outputMu.Lock()
 
-	// 获取当前时间
-	timestamp := time.Now().Format("2006-01-02 15:04:05") // 格式为：YYYY-MM-DD HH:MM:SS
-	logString := "[" + timestamp + "] " + errString       // 拼接时间和错误消息
-	_, writeErr := fo.ErrOutput.outputFile.WriteString(logString)
+	_, writeErr := fo.ErrOutput.outputFile.WriteString(errString)
 
 	if writeErr != nil {
 		logger.Errorf("Failed to write error output file : %v\n", writeErr)

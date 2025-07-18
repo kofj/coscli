@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
 	"os"
@@ -33,14 +34,26 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 
 	chFiles := make(chan fileInfoType, ChannelSize)
 	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
 	// 统计文件数量及大小数据
 	go fileStatistic(localPath, fo)
 	// 生成文件列表
 	go generateFileList(localPath, chFiles, chListError, fo)
 
 	for i := 0; i < fo.Operation.Routines; i++ {
-		go uploadFiles(c, cosUrl, fo, chFiles, chError)
+		go uploadFiles(c, cosUrl, fo, chFiles, chError, chLog)
 	}
 
 	completed := 0
@@ -64,6 +77,10 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 		}
 	}
 
+	close(chLog)
+	wgLogger.Wait()
+	logger.Info("logger record completed")
+
 	closeProgress()
 	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
 
@@ -71,31 +88,51 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 	PrintTransferStats(startT, endT, fo)
 }
 
-func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <-chan fileInfoType, chError chan<- error) {
+func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <-chan fileInfoType, chError chan<- error, chLog chan<- string) {
 	for file := range chFiles {
 		var skip, isDir bool
 		var err error
 		var size, transferSize int64
 		var msg string
+		var processMsg string
+		var sleepTime time.Duration
 		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
 			skip, err, isDir, size, transferSize, msg = SingleUpload(c, fo, file, cosUrl)
+			if retry == 0 {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] %s successed\n", time.Now().Format("2006-01-02 15:04:05"), msg)
+				} else {
+					processMsg += fmt.Sprintf("[%s] %s failed: %v\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
+				}
+			} else {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg)
+				} else {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err)
+				}
+			}
 			if err == nil {
 				break // Upload succeeded, break the loop
 			} else {
+
 				if fo.Operation.ErrRetryInterval == 0 {
 					// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
-					time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
+					sleepTime = time.Duration(rand.Intn(10)+1) * time.Second
 				} else {
-					time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
+					sleepTime = time.Duration(fo.Operation.ErrRetryInterval) * time.Second
 				}
+
+				time.Sleep(sleepTime)
 
 				fo.Monitor.updateDealSize(-transferSize)
 			}
 		}
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		chLog <- processMsg
 		if err != nil {
-			chError <- fmt.Errorf("%s failed: %w", msg, err)
+			// 获取当前时间
+			chError <- fmt.Errorf("[%s] %s failed: %w\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
 			continue
 		}
 	}
@@ -121,7 +158,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 
 	var snapshotKey string
 
-	msg = fmt.Sprintf("\nUpload %s to %s", localFilePath, getCosUrl(cosUrl.(*CosUrl).Bucket, cosPath))
+	msg = fmt.Sprintf("Upload %s to %s", localFilePath, getCosUrl(cosUrl.(*CosUrl).Bucket, cosPath))
 	if fileInfo.IsDir() {
 		isDir = true
 		if fo.Operation.SkipDir {

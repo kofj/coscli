@@ -50,6 +50,8 @@ Example:
 		routines, _ := cmd.Flags().GetInt("routines")
 		failOutput, _ := cmd.Flags().GetBool("fail-output")
 		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+		processLog, _ := cmd.Flags().GetBool("process-log")
+		processLogPath, _ := cmd.Flags().GetString("process-log-path")
 		onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
 		disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
 		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
@@ -110,6 +112,8 @@ Example:
 				RetryNum:          retryNum,
 				ErrRetryNum:       errRetryNum,
 				ErrRetryInterval:  errRetryInterval,
+				ProcessLog:        processLog,
+				ProcessLogPath:    processLogPath,
 				OnlyCurrentDir:    onlyCurrentDir,
 				DisableAllSymlink: disableAllSymlink,
 				EnableSymlinkDir:  enableSymlinkDir,
@@ -124,12 +128,14 @@ Example:
 				SkipDir:           skipDir,
 				Update:            update,
 			},
-			Monitor:   &util.FileProcessMonitor{},
-			Config:    &config,
-			Param:     &param,
-			ErrOutput: &util.ErrOutput{},
-			CpType:    getCommandType(srcUrl, destUrl),
-			Command:   util.CommandSync,
+			Monitor:       &util.FileProcessMonitor{},
+			Config:        &config,
+			Param:         &param,
+			ErrOutput:     &util.ErrOutput{},
+			ProcessLogger: &util.ProcessLogger{},
+			CpType:        getCommandType(srcUrl, destUrl),
+			Command:       util.CommandSync,
+			OutPutDirName: time.Now().Format("20060102_150405"),
 		}
 
 		// 快照db实例化
@@ -315,6 +321,8 @@ func init() {
 	syncCmd.Flags().Int("routines", 3, "Specifies the number of files concurrent upload or download threads")
 	syncCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
 	syncCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
+	syncCmd.Flags().Bool("process-log", false, "This option determines whether process log recording is enabled. If enabled, information related to file upload or download processes (including error details) will be recorded in a log file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files and basic process information will be output to the console.")
+	syncCmd.Flags().String("process-log-path", "coscli_output", "This option is used to specify a dedicated output folder for process logs. The logs will record information related to file uploads or downloads, including errors and process details. By providing a custom folder path, you can control the location and name of the log output folder. If this option is not set, the default log folder (coscli_output) will be used.")
 	syncCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
 	syncCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
 	syncCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")

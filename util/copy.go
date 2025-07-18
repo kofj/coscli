@@ -3,9 +3,11 @@ package util
 import (
 	"context"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -65,7 +67,18 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
 	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
 
 	if fo.BucketType == "OFS" {
 		// 扫描ofs对象大小及数量
@@ -80,7 +93,7 @@ func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUr
 	}
 
 	for i := 0; i < fo.Operation.Routines; i++ {
-		go copyFiles(srcClient, destClient, srcUrl, destUrl, fo, chObjects, chError)
+		go copyFiles(srcClient, destClient, srcUrl, destUrl, fo, chObjects, chError, chLog)
 	}
 
 	completed := 0
@@ -103,16 +116,35 @@ func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUr
 			}
 		}
 	}
+
+	close(chLog)
+	wgLogger.Wait()
+	logger.Info("logger record completed")
 }
 
-func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error) {
+func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error, chLog chan<- string) {
 	for object := range chObjects {
 		var skip, isDir bool
 		var err error
 		var size int64
 		var msg string
+		var processMsg string
+		var sleepTime time.Duration
 		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
 			skip, err, isDir, size, msg = singleCopy(srcClient, destClient, fo, object, srcUrl, destUrl)
+			if retry == 0 {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] %s successed\n", time.Now().Format("2006-01-02 15:04:05"), msg)
+				} else {
+					processMsg += fmt.Sprintf("[%s] %s failed: %v\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
+				}
+			} else {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg)
+				} else {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err)
+				}
+			}
 			if err == nil {
 				break // Copy succeeded, break the loop
 			} else {
@@ -126,8 +158,9 @@ func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo
 		}
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		chLog <- processMsg
 		if err != nil {
-			chError <- fmt.Errorf("%s failed: %w", msg, err)
+			chError <- fmt.Errorf("[%s] %s failed: %w\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
 			continue
 		}
 	}
@@ -143,7 +176,7 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	object := objectInfo.prefix + objectInfo.relativeKey
 
 	destPath := copyPathFixed(objectInfo.relativeKey, destUrl.(*CosUrl).Object)
-	msg = fmt.Sprintf("\nCopy %s to %s", getCosUrl(srcUrl.(*CosUrl).Bucket, object), getCosUrl(destUrl.(*CosUrl).Bucket, destPath))
+	msg = fmt.Sprintf("Copy %s to %s", getCosUrl(srcUrl.(*CosUrl).Bucket, object), getCosUrl(destUrl.(*CosUrl).Bucket, destPath))
 
 	var err error
 	// 是文件夹则直接创建并退出

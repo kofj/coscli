@@ -3,11 +3,13 @@ package util
 import (
 	"context"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -86,7 +88,18 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
 	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
 
 	if fo.BucketType == "OFS" {
 		// 扫描ofs对象大小及数量
@@ -101,7 +114,7 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 	}
 
 	for i := 0; i < fo.Operation.Routines; i++ {
-		go downloadFiles(c, cosUrl, fileUrl, fo, chObjects, chError)
+		go downloadFiles(c, cosUrl, fileUrl, fo, chObjects, chError, chLog)
 	}
 
 	completed := 0
@@ -124,33 +137,55 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 			}
 		}
 	}
+
+	close(chLog)
+	wgLogger.Wait()
+	logger.Info("logger record completed")
 }
 
-func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error) {
+func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error, chLog chan<- string) {
 	for object := range chObjects {
 		var skip, isDir bool
 		var err error
 		var size, transferSize int64
 		var msg string
+		var processMsg string
+		var sleepTime time.Duration
 		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
 			skip, err, isDir, size, transferSize, msg = singleDownload(c, fo, object, cosUrl, fileUrl)
+			if retry == 0 {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] %s successed\n", time.Now().Format("2006-01-02 15:04:05"), msg)
+				} else {
+					processMsg += fmt.Sprintf("[%s] %s failed: %v\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
+				}
+			} else {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg)
+				} else {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err)
+				}
+			}
 			if err == nil {
 				break // Download succeeded, break the loop
 			} else {
 				if fo.Operation.ErrRetryInterval == 0 {
 					// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
-					time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
+					sleepTime = time.Duration(rand.Intn(10)+1) * time.Second
 				} else {
-					time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
+					sleepTime = time.Duration(fo.Operation.ErrRetryInterval) * time.Second
 				}
+
+				time.Sleep(sleepTime)
 
 				fo.Monitor.updateDealSize(-transferSize)
 			}
 		}
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		chLog <- processMsg
 		if err != nil {
-			chError <- fmt.Errorf("%s failed: %w", msg, err)
+			chError <- fmt.Errorf("[%s] %s failed: %w\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
 			continue
 		}
 	}
@@ -167,7 +202,7 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	object := objectInfo.prefix + objectInfo.relativeKey
 
 	localFilePath := DownloadPathFixed(objectInfo.relativeKey, fileUrl.ToString())
-	msg = fmt.Sprintf("\nDownload %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
+	msg = fmt.Sprintf("Download %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
 
 	_, err := os.Stat(localFilePath)
 

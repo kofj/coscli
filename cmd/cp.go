@@ -43,6 +43,8 @@ Example:
 		routines, _ := cmd.Flags().GetInt("routines")
 		failOutput, _ := cmd.Flags().GetBool("fail-output")
 		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+		processLog, _ := cmd.Flags().GetBool("process-log")
+		processLogPath, _ := cmd.Flags().GetString("process-log-path")
 		metaString, _ := cmd.Flags().GetString("meta")
 		retryNum, _ := cmd.Flags().GetInt("retry-num")
 		errRetryNum, _ := cmd.Flags().GetInt("err-retry-num")
@@ -106,6 +108,8 @@ Example:
 				Routines:          routines,
 				FailOutput:        failOutput,
 				FailOutputPath:    failOutputPath,
+				ProcessLog:        processLog,
+				ProcessLogPath:    processLogPath,
 				Meta:              meta,
 				RetryNum:          retryNum,
 				ErrRetryNum:       errRetryNum,
@@ -121,13 +125,15 @@ Example:
 				Move:              move,
 				SkipDir:           skipDir,
 			},
-			Monitor:    &util.FileProcessMonitor{},
-			Config:     &config,
-			Param:      &param,
-			ErrOutput:  &util.ErrOutput{},
-			CpType:     getCommandType(srcUrl, destUrl),
-			Command:    util.CommandCP,
-			BucketType: "COS",
+			Monitor:       &util.FileProcessMonitor{},
+			Config:        &config,
+			Param:         &param,
+			ErrOutput:     &util.ErrOutput{},
+			ProcessLogger: &util.ProcessLogger{},
+			CpType:        getCommandType(srcUrl, destUrl),
+			Command:       util.CommandCP,
+			BucketType:    "COS",
+			OutPutDirName: time.Now().Format("20060102_150405"),
 		}
 
 		if !fo.Operation.Recursive && len(fo.Operation.Filters) > 0 {
@@ -304,6 +310,8 @@ func init() {
 	cpCmd.Flags().Int("routines", 3, "Specifies the number of files concurrent upload or download threads")
 	cpCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
 	cpCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
+	cpCmd.Flags().Bool("process-log", true, "This option determines whether process log recording is enabled. If enabled, information related to file upload or download processes (including error details) will be recorded in a log file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files and basic process information will be output to the console.")
+	cpCmd.Flags().String("process-log-path", "coscli_output", "This option is used to specify a dedicated output folder for process logs. The logs will record information related to file uploads or downloads, including errors and process details. By providing a custom folder path, you can control the location and name of the log output folder. If this option is not set, the default log folder (coscli_output) will be used.")
 	cpCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")

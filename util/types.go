@@ -70,16 +70,18 @@ type CpType int
 
 // FileOperations 文件操作配置
 type FileOperations struct {
-	Operation   Operation
-	Monitor     *FileProcessMonitor
-	ErrOutput   *ErrOutput
-	Config      *Config
-	Param       *Param
-	SnapshotDb  *leveldb.DB
-	CpType      CpType
-	Command     string
-	DeleteCount int
-	BucketType  string
+	Operation     Operation
+	Monitor       *FileProcessMonitor
+	ErrOutput     *ErrOutput
+	ProcessLogger *ProcessLogger
+	Config        *Config
+	Param         *Param
+	SnapshotDb    *leveldb.DB
+	CpType        CpType
+	Command       string
+	DeleteCount   int
+	BucketType    string
+	OutPutDirName string
 }
 
 // Operation 文件操作参数
@@ -93,6 +95,8 @@ type Operation struct {
 	Routines          int
 	FailOutput        bool
 	FailOutputPath    string
+	ProcessLog        bool
+	ProcessLogPath    string
 	Meta              Meta
 	RetryNum          int
 	ErrRetryNum       int
@@ -121,6 +125,12 @@ type Operation struct {
 type ErrOutput struct {
 	Path       string
 	outputFile *os.File
+}
+
+// ProcessLogger 进程日志信息
+type ProcessLogger struct {
+	Path    string
+	logFile *os.File
 }
 
 // FilterOptionType 正则规则信息

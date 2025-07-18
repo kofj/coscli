@@ -55,3 +55,8 @@ const (
 	VersionStatusSuspended = "Suspended"
 	VersionStatusEnabled   = "Enabled"
 )
+
+const (
+	ProcessLogLevelInfo  = 1
+	ProcessLogLevelError = 2
+)
