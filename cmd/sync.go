@@ -67,12 +67,12 @@ Example:
 			return fmt.Errorf("Sync invalid meta, reason: " + err.Error())
 		}
 
-		if retryNum < 0 || retryNum > 10 {
-			return fmt.Errorf("retry-num must be between 0 and 10 (inclusive)")
+		if retryNum < 0 || retryNum > 100 {
+			return fmt.Errorf("retry-num must be between 0 and 100 (inclusive)")
 		}
 
-		if errRetryNum < 0 || errRetryNum > 10 {
-			return fmt.Errorf("err-retry-num must be between 0 and 10 (inclusive)")
+		if errRetryNum < 0 || errRetryNum > 100 {
+			return fmt.Errorf("err-retry-num must be between 0 and 100 (inclusive)")
 		}
 
 		if errRetryInterval < 0 || errRetryInterval > 10 {
@@ -309,9 +309,9 @@ func init() {
 		"in order to avoid too much snapshot information, when the snapshot information is useless, "+
 		"please clean up your own snapshot-path on your own immediately.")
 	syncCmd.Flags().Bool("delete", false, "Delete any other files in the specified destination path, only keeping the files synced this time. It is recommended to enable version control before using the --delete option to prevent accidental data deletion.")
-	syncCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-10 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
-	syncCmd.Flags().Int("err-retry-num", 0, "Error retry attempts. Specify 1-10 times, or 0 for no retry.")
-	syncCmd.Flags().Int("err-retry-interval", 0, "Retry interval (available only when specifying error retry attempts 1-10). Specify an interval of 1-10 seconds, or if not specified or set to 0, a random interval within 1-10 seconds will be used for each retry.")
+	syncCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-100 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
+	syncCmd.Flags().Int("err-retry-num", 5, "Error retry attempts. Specify 1-100 times, or 0 for no retry.")
+	syncCmd.Flags().Int("err-retry-interval", 1, "Retry interval (available only when specifying error retry attempts 1-10). Specify an interval of 1-10 seconds, or if not specified or set to 0, a random interval within 1-10 seconds will be used for each retry.")
 	syncCmd.Flags().Int("routines", 3, "Specifies the number of files concurrent upload or download threads")
 	syncCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
 	syncCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")

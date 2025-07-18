@@ -116,13 +116,11 @@ func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo
 			if err == nil {
 				break // Copy succeeded, break the loop
 			} else {
-				if retry < fo.Operation.ErrRetryNum {
-					if fo.Operation.ErrRetryInterval == 0 {
-						// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
-						time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
-					} else {
-						time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
-					}
+				if fo.Operation.ErrRetryInterval == 0 {
+					// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
+					time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
+				} else {
+					time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
 				}
 			}
 		}
