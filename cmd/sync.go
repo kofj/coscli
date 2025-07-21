@@ -290,7 +290,7 @@ func init() {
 	syncCmd.Flags().String("storage-class", "", "Specifying a storage class")
 	syncCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
 	syncCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
-	syncCmd.Flags().Int("thread-num", 5, "Specifies the number of concurrent upload or download threads")
+	syncCmd.Flags().Int("thread-num", 0, "Specifies the number of concurrent upload or download threads")
 	syncCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")

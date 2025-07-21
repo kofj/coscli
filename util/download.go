@@ -207,14 +207,14 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	localFilePath := DownloadPathFixed(objectInfo.relativeKey, fileUrl.ToString())
 	msg = fmt.Sprintf("Download %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
 
-	_, err := os.Stat(localFilePath)
-
 	// 是文件夹则直接创建并退出
 	if size == 0 && strings.HasSuffix(object, "/") {
 		rErr = os.MkdirAll(localFilePath, 0755)
 		isDir = true
 		return
 	}
+
+	_, err := os.Stat(localFilePath)
 
 	if err == nil {
 		// 文件存在再判断是否需要跳过
@@ -241,6 +241,16 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		return
 	}
 
+	threadNum := fo.Operation.ThreadNum
+	if threadNum == 0 {
+		// 若未设置文件分块并发数,需要根据文件大小和分块大小计算默认分块并发数
+		threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize)
+		if err != nil {
+			rErr = err
+			return
+		}
+	}
+
 	// 开始下载文件
 	opt := &cos.MultiDownloadOptions{
 		Opt: &cos.ObjectGetOptions{
@@ -259,7 +269,7 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 			XCosTrafficLimit:           (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
 		},
 		PartSize:        fo.Operation.PartSize,
-		ThreadPoolSize:  fo.Operation.ThreadNum,
+		ThreadPoolSize:  threadNum,
 		CheckPoint:      true,
 		CheckPointFile:  "",
 		DisableChecksum: fo.Operation.DisableChecksum,

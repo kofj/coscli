@@ -306,7 +306,7 @@ func init() {
 	cpCmd.Flags().String("storage-class", "", "Specifying a storage class")
 	cpCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
 	cpCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
-	cpCmd.Flags().Int("thread-num", 5, "Specifies the number of partition concurrent upload or download threads")
+	cpCmd.Flags().Int("thread-num", 0, "Specifies the number of partition concurrent upload or download threads")
 	cpCmd.Flags().Int("routines", 3, "Specifies the number of files concurrent upload or download threads")
 	cpCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
 	cpCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")

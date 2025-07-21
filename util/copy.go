@@ -202,8 +202,15 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 		return
 	}
 
-	// copy暂不支持监听进度
-	// size = 0
+	threadNum := fo.Operation.ThreadNum
+	if threadNum == 0 {
+		// 若未设置文件分块并发数,需要根据文件大小和分块大小计算默认分块并发数
+		threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize)
+		if err != nil {
+			rErr = err
+			return
+		}
+	}
 
 	url, err := GenURL(fo.Config, fo.Param, srcUrl.(*CosUrl).Bucket)
 
@@ -223,7 +230,7 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 			nil,
 		},
 		PartSize:       fo.Operation.PartSize,
-		ThreadPoolSize: fo.Operation.ThreadNum,
+		ThreadPoolSize: threadNum,
 	}
 	if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||
 		fo.Operation.Meta.ContentType != "" || fo.Operation.Meta.Expires != "" || fo.Operation.Meta.MetaChange {

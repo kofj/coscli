@@ -193,6 +193,16 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 			return
 		}
 
+		threadNum := fo.Operation.ThreadNum
+		if threadNum == 0 {
+			// 若未设置文件分块并发数,需要根据文件大小和分块大小计算默认分块并发数
+			threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize)
+			if err != nil {
+				rErr = err
+				return
+			}
+		}
+
 		opt := &cos.MultiUploadOptions{
 			OptIni: &cos.InitiateMultipartUploadOptions{
 				ACLHeaderOptions: &cos.ACLHeaderOptions{
@@ -225,7 +235,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 				},
 			},
 			PartSize:        fo.Operation.PartSize,
-			ThreadPoolSize:  fo.Operation.ThreadNum,
+			ThreadPoolSize:  threadNum,
 			CheckPoint:      true,
 			DisableChecksum: fo.Operation.DisableChecksum,
 		}
