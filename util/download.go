@@ -152,18 +152,21 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 		var processMsg string
 		var sleepTime time.Duration
 		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
+			startT := time.Now().UnixNano() / 1000 / 1000
 			skip, err, isDir, size, transferSize, msg = singleDownload(c, fo, object, cosUrl, fileUrl)
+			endT := time.Now().UnixNano() / 1000 / 1000
+			costTime := int(endT - startT)
 			if retry == 0 {
 				if err == nil {
-					processMsg += fmt.Sprintf("[%s] %s successed\n", time.Now().Format("2006-01-02 15:04:05"), msg)
+					processMsg += fmt.Sprintf("[%s] %s successed,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, costTime)
 				} else {
-					processMsg += fmt.Sprintf("[%s] %s failed: %v\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
+					processMsg += fmt.Sprintf("[%s] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, err, costTime)
 				}
 			} else {
 				if err == nil {
-					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg)
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, costTime)
 				} else {
-					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err)
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err, costTime)
 				}
 			}
 			if err == nil {
