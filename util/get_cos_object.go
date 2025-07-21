@@ -85,7 +85,7 @@ func CheckCosPathType(c *cos.Client, prefix string, limit int, fo *FileOperation
 	if len(res.Contents) > 0 {
 		isDir = true
 	}
-	if fo.BucketType == "OFS" && len(res.CommonPrefixes) > 0 {
+	if fo.BucketType == BucketTypeOfs && len(res.CommonPrefixes) > 0 {
 		isDir = true
 	}
 

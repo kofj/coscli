@@ -57,6 +57,6 @@ const (
 )
 
 const (
-	ProcessLogLevelInfo  = 1
-	ProcessLogLevelError = 2
+	BucketTypeCos = "COS"
+	BucketTypeOfs = "OFS"
 )

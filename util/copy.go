@@ -80,7 +80,7 @@ func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUr
 		}
 	}()
 
-	if fo.BucketType == "OFS" {
+	if fo.BucketType == BucketTypeOfs {
 		// 扫描ofs对象大小及数量
 		go getOfsObjectList(srcClient, srcUrl, nil, nil, fo, true, false)
 		// 获取ofs对象列表
@@ -239,7 +239,7 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 		opt.OptCopy.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
 	}
 
-	if fo.BucketType == "OFS" {
+	if fo.BucketType == BucketTypeOfs {
 		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt)
 	} else {
 		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt, VersionId...)

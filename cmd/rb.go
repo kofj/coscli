@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"coscli/util"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
@@ -60,13 +59,11 @@ Example:
 					ErrOutput: &util.ErrOutput{},
 				}
 
-				// 根据s.Header判断是否是融合桶或者普通桶
-				s, err := c.Bucket.Head(context.Background())
+				bucketType, err := util.GetBucketType(c, &param, &config, bucketIDName)
 				if err != nil {
 					return err
 				}
-
-				if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+				if bucketType == util.BucketTypeOfs {
 					fo.Operation.AllVersions = false
 				} else {
 					// 判桶断是否开启版本控制，开启后需清理历史版本

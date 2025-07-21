@@ -1,7 +1,6 @@
 package util
 
 import (
-	"context"
 	"fmt"
 	"github.com/olekukonko/tablewriter"
 	logger "github.com/sirupsen/logrus"
@@ -21,14 +20,9 @@ var totalCnt int
 var totalSize int64
 
 // DuObjects 统计cos对象
-func DuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duType int, allVersions bool) error {
-	// 根据s.Header判断是否是融合桶或者普通桶
-	s, err := c.Bucket.Head(context.Background())
-	if err != nil {
-		return err
-	}
-
-	if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+func DuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duType int, allVersions bool, bucketType string) error {
+	var err error
+	if bucketType == BucketTypeOfs {
 		prefix := cosUrl.(*CosUrl).Object
 		err = countOfsObjects(c, prefix, filters, "", duType)
 	} else {
@@ -255,7 +249,7 @@ var dirs []CosInfo
 var files []CosInfo
 
 // LsAndDuObjects 列出一级目录并统计文件个数及大小
-func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType) error {
+func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, bucketType string) error {
 	var err error
 	var objects []cos.Object
 	var commonPrefixes []string
@@ -276,7 +270,7 @@ func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType
 					if err != nil {
 						return fmt.Errorf("cos url format error:%v", err)
 					}
-					DuObjects(c, cosDirUrl, filters, DU_TYPE_TOTAL, false)
+					DuObjects(c, cosDirUrl, filters, DU_TYPE_TOTAL, false, bucketType)
 					// 记录统计数据
 					dirs = append(dirs, CosInfo{
 						Name:       commonPrefix,
@@ -337,27 +331,3 @@ func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType
 
 	return nil
 }
-
-//
-//func DuObjectsForPrefix(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType) error {
-//	// 根据s.Header判断是否是融合桶或者普通桶
-//	s, err := c.Bucket.Head(context.Background())
-//	if err != nil {
-//		return err
-//	}
-//
-//	if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
-//		prefix := cosUrl.(*CosUrl).Object
-//		err = countOfsObjects(c, prefix, filters, "", DU_TYPE_TOTAL)
-//	} else {
-//		err = countCosObjects(c, cosUrl, filters, DU_TYPE_TOTAL)
-//	}
-//
-//	if err != nil {
-//		return err
-//	}
-//
-//	// 输出最终统计数据
-//	printStatistic()
-//	return nil
-//}

@@ -15,19 +15,19 @@ import (
 var succeedNum, failedNum, errTypeNum int
 
 // RestoreObjects 取回cos对象
-func RestoreObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
-	// 根据s.Header判断是否是融合桶或者普通桶
-	s, err := c.Bucket.Head(context.Background())
-	if err != nil {
-		return err
-	}
+func RestoreObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, bucketType string) error {
 	logger.Infof("Start Restore %s", cosUrl.(*CosUrl).Bucket+cosUrl.(*CosUrl).Object)
-	if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+	var err error
+	if bucketType == BucketTypeOfs {
 		bucketName := cosUrl.(*CosUrl).Bucket
 		prefix := cosUrl.(*CosUrl).Object
 		err = restoreOfsObjects(c, bucketName, prefix, fo, "")
 	} else {
 		err = restoreCosObjects(c, cosUrl, fo)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)

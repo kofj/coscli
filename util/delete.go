@@ -25,7 +25,7 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 	if srcUrl.IsFileUrl() {
 		err = getLocalFileKeys(srcUrl, srcKeys, fo)
 	} else {
-		if fo.BucketType == "OFS" {
+		if fo.BucketType == BucketTypeOfs {
 			err = GetOfsKeys(srcClient, srcUrl, srcKeys, fo)
 		} else {
 			err = GetCosKeys(srcClient, srcUrl, srcKeys, fo)
@@ -40,7 +40,7 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 	if destUrl.IsFileUrl() {
 		err = getLocalFileKeys(destUrl, destKeys, fo)
 	} else {
-		if fo.BucketType == "OFS" {
+		if fo.BucketType == BucketTypeOfs {
 			err = GetOfsKeys(destClient, destUrl, destKeys, fo)
 		} else {
 			err = GetCosKeys(destClient, destUrl, destKeys, fo)
@@ -482,15 +482,15 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 			logger.Infof("Start remove prefix %s", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object))
 		}
 
-		// 根据s.Header判断是否是融合桶或者普通桶
-		s, err := c.Bucket.Head(context.Background())
+		bucketType, err := GetBucketType(c, fo.Param, fo.Config, bucketName)
 		if err != nil {
 			return err
 		}
+
 		// 打印一个空行
 		fmt.Println()
 
-		if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+		if bucketType == BucketTypeOfs {
 			prefix := cosUrl.(*CosUrl).Object
 
 			if len(fo.Operation.Filters) == 0 {

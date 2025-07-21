@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
 	"os"
@@ -202,15 +201,13 @@ Example:
 			if err != nil {
 				return err
 			}
-			// 判断桶是否是ofs桶
-			s, err := c.Bucket.Head(context.Background())
+
+			// 获取桶类型
+			fo.BucketType, err = util.GetBucketType(c, fo.Param, fo.Config, bucketName)
 			if err != nil {
 				return err
 			}
-			// 根据s.Header判断是否是融合桶或者普通桶
-			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
-				fo.BucketType = "OFS"
-			}
+
 			// 是否关闭crc64
 			if fo.Operation.DisableCrc64 {
 				c.Conf.EnableCRC = false
@@ -242,11 +239,10 @@ Example:
 				return err
 			}
 
-			// 判断桶是否是ofs桶
-			s, _ := srcClient.Bucket.Head(context.Background())
-			// 根据s.Header判断是否是融合桶或者普通桶
-			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
-				fo.BucketType = "OFS"
+			// 获取桶类型
+			fo.BucketType, err = util.GetBucketType(srcClient, fo.Param, fo.Config, srcBucketName)
+			if err != nil {
+				return err
 			}
 
 			// 是否关闭crc64

@@ -53,6 +53,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&logPath, "log-path", "", "", "coscli log dir")
 	rootCmd.PersistentFlags().BoolVarP(&disableLog, "disable-log", "", false, "close coscli log")
 	rootCmd.PersistentFlags().StringVarP(&param.CloseAutoSwitchHost, "close_auto_switch_host", "", "", "Close Auto Switch Host")
+	rootCmd.PersistentFlags().StringVarP(&param.BucketType, "bucket-type", "", "", "Specify the bucket type as COS/OFS.")
 }
 
 func initConfig() {

@@ -66,11 +66,15 @@ func initConfigFile(cfgFlag bool) error {
 		_, _ = fmt.Scanf("%s\n", &config.Base.SecretKey)
 		fmt.Println("Input Your Session Token:")
 		_, _ = fmt.Scanf("%s\n", &config.Base.SessionToken)
-		fmt.Println("Input Disable Encryption:")
-		_, _ = fmt.Scanf("%s\n", &config.Base.DisableEncryption)
 	}
 
-	fmt.Println("Input Auto Switch Host:")
+	fmt.Println("Disable encryption (DisableEncryption)? (true/false, default: false):")
+	_, _ = fmt.Scanf("%s\n", &config.Base.DisableEncryption)
+
+	fmt.Println("Disable automatic bucket type fetching (DisableAutoFetchBucketType)? (true/false, default: false):")
+	_, _ = fmt.Scanf("%s\n", &config.Base.DisableAutoFetchBucketType)
+
+	fmt.Println("Disable automatic backup domain switching (CloseAutoSwitchHost)? (true/false, default: false):")
 	_, _ = fmt.Scanf("%s\n", &config.Base.CloseAutoSwitchHost)
 	if len(config.Base.SessionToken) < 3 {
 		config.Base.SessionToken = ""

@@ -101,7 +101,7 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 		}
 	}()
 
-	if fo.BucketType == "OFS" {
+	if fo.BucketType == BucketTypeOfs {
 		// 扫描ofs对象大小及数量
 		go getOfsObjectList(c, cosUrl, nil, nil, fo, true, false)
 		// 获取ofs对象列表
@@ -283,7 +283,7 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 
 	var resp *cos.Response
 
-	if fo.BucketType == "OFS" {
+	if fo.BucketType == BucketTypeOfs {
 		resp, err = c.Object.Download(context.Background(), object, localFilePath, opt)
 	} else {
 		resp, err = c.Object.Download(context.Background(), object, localFilePath, opt, VersionId...)

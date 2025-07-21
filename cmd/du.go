@@ -49,7 +49,13 @@ Example:
 			}
 		}
 
-		err = util.DuObjects(c, cosUrl, filters, util.DU_TYPE_CATEGORIZATION, allVersions)
+		// 获取桶类型
+		bucketType, err := util.GetBucketType(c, &param, &config, bucketName)
+		if err != nil {
+			return err
+		}
+
+		err = util.DuObjects(c, cosUrl, filters, util.DU_TYPE_CATEGORIZATION, allVersions, bucketType)
 		return err
 	},
 }
