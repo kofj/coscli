@@ -322,7 +322,7 @@ func init() {
 	cpCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
 	cpCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
 	cpCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
-	cpCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
+	cpCmd.Flags().Bool("disable-checksum", true, "Disable overall CRC64 checksum, only validate fragments")
 	cpCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
 	cpCmd.Flags().Int("long-links-nums", 0, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
 	cpCmd.Flags().String("version-id", "", "Downloading a specified version of a file , only available if bucket versioning is enabled.")

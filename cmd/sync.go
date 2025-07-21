@@ -327,7 +327,7 @@ func init() {
 	syncCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
 	syncCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
 	syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
-	syncCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
+	syncCmd.Flags().Bool("disable-checksum", true, "Disable overall CRC64 checksum, only validate fragments")
 	syncCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
 	syncCmd.Flags().Bool("long-links-nums", false, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
