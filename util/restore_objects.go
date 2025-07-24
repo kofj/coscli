@@ -8,7 +8,6 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
 	"net/url"
-	"os"
 	"path/filepath"
 	"time"
 )
@@ -55,8 +54,6 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) err
 		}
 
 		for _, object := range objects {
-			fmt.Println(object)
-			os.Exit(1)
 			if isRestoreType(object) {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
