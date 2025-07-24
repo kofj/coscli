@@ -10,6 +10,9 @@ const (
 	MAZStandardIA         = "MAZ_STANDARD_IA"
 	MAZIntelligentTiering = "MAZ_INTELLIGENT_TIERING"
 	MAZArchive            = "MAZ_ARCHIVE"
+
+	StorageTierArchive     = "ARCHIVE_ACCESS"
+	StorageTierDeepArchive = "DEEP_ARCHIEVE_ACCESS"
 )
 
 const (

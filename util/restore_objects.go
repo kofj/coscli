@@ -8,6 +8,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
 	"net/url"
+	"os"
 	"path/filepath"
 	"time"
 )
@@ -54,7 +55,9 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) err
 		}
 
 		for _, object := range objects {
-			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
+			fmt.Println(object)
+			os.Exit(1)
+			if isRestoreType(object) {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
 					if object.RestoreStatus == "ONGOING" || object.RestoreStatus == "ONGING" {
@@ -130,7 +133,7 @@ func restoreOfsObjects(c *cos.Client, bucketName, prefix string, fo *FileOperati
 		}
 
 		for _, object := range objects {
-			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
+			if isRestoreType(object) {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
 					if object.RestoreStatus == "ONGOING" || object.RestoreStatus == "ONGING" {
@@ -168,4 +171,21 @@ func restoreOfsObjects(c *cos.Client, bucketName, prefix string, fo *FileOperati
 	}
 
 	return nil
+}
+
+// 判断是否是需要回热的文件类型
+func isRestoreType(object cos.Object) bool {
+	if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
+		return true
+	}
+
+	// 智能分层类型需要在归档层和深度归档层才可以回热
+	if object.StorageClass == IntelligentTiering || object.StorageClass == MAZIntelligentTiering {
+		if object.StorageTier == StorageTierArchive || object.StorageTier == StorageTierDeepArchive {
+			return true
+		}
+	}
+
+	return false
+
 }
