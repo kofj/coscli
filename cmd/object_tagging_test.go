@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-func TestBucketTaggingCmd(t *testing.T) {
-	fmt.Println("TestBucketTaggingCmd")
+func TestObjectTaggingCmd(t *testing.T) {
+	fmt.Println("TestObjectTaggingCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
 	setUp(testBucket, testAlias, testEndpoint, false, false)
@@ -22,13 +22,20 @@ func TestBucketTaggingCmd(t *testing.T) {
 	cmd := rootCmd
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
+	genDir(testDir, 3)
+	defer delDir(testDir)
+	localFileName := fmt.Sprintf("%s/small-file", testDir)
+	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
+	args := []string{"cp", localFileName, cosFileName, "-r"}
+	cmd.SetArgs(args)
+	cmd.Execute()
 	Convey("test coscli bucket_tagging", t, func() {
 		Convey("success", func() {
 			Convey("put", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "put",
-					fmt.Sprintf("cos://%s", testAlias), "testkey#testval"}
+				args := []string{"object-tagging", "--method", "put",
+					cosFileName, "testkey#testval"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -36,8 +43,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 			Convey("add", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "add",
-					fmt.Sprintf("cos://%s", testAlias), "testkey2#testval2"}
+				args := []string{"object-tagging", "--method", "add",
+					cosFileName, "testkey2#testval2"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -46,8 +53,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				time.Sleep(time.Second)
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "get",
-					fmt.Sprintf("cos://%s", testAlias)}
+				args := []string{"object-tagging", "--method", "get",
+					cosFileName}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -55,8 +62,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 			Convey("delete", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", testAlias)}
+				args := []string{"object-tagging", "--method", "delete",
+					cosFileName}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -64,8 +71,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 			Convey("deleteDes", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", testAlias), "testkey2#testval2"}
+				args := []string{"object-tagging", "--method", "delete",
+					cosFileName, "testkey2#testval2"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -76,8 +83,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("not enough arguments", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "put",
-						fmt.Sprintf("cos://%s", testAlias)}
+					args := []string{"object-tagging", "--method", "put",
+						cosFileName}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -90,8 +97,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 						return nil, fmt.Errorf("test put client error")
 					})
 					defer patches.Reset()
-					args := []string{"bucket-tagging", "--method", "put",
-						fmt.Sprintf("cos://%s", testAlias), "testval"}
+					args := []string{"object-tagging", "--method", "put",
+						cosFileName, "testval"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -100,8 +107,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("invalid tag", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "put",
-						fmt.Sprintf("cos://%s", testAlias), "testval"}
+					args := []string{"object-tagging", "--method", "put",
+						cosFileName, "testval"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -110,8 +117,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("PutTagging failed", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "put",
-						fmt.Sprintf("cos://%s", testAlias), "qcs:1#testval"}
+					args := []string{"object-tagging", "--method", "put",
+						cosFileName, "qcs:1#testval"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -122,8 +129,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("not enough arguments", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "add",
-						fmt.Sprintf("cos://%s", testAlias)}
+					args := []string{"object-tagging", "--method", "add",
+						cosFileName}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -136,8 +143,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 						return nil, fmt.Errorf("test add client error")
 					})
 					defer patches.Reset()
-					args := []string{"bucket-tagging", "--method", "add",
-						fmt.Sprintf("cos://%s", testAlias), "testval"}
+					args := []string{"object-tagging", "--method", "add",
+						cosFileName, "testval"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -146,8 +153,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("invalid tag", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "add",
-						fmt.Sprintf("cos://%s", testAlias), "testval"}
+					args := []string{"object-tagging", "--method", "add",
+						cosFileName, "testval"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -156,8 +163,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("AddTagging failed", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "add",
-						fmt.Sprintf("cos://%s", testAlias), "qcs:1#testval"}
+					args := []string{"object-tagging", "--method", "add",
+						cosFileName, "qcs:1#testval"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -168,7 +175,7 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("not enough arguments", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "get"}
+					args := []string{"object-tagging", "--method", "get"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -181,8 +188,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 						return nil, fmt.Errorf("test get client error")
 					})
 					defer patches.Reset()
-					args := []string{"bucket-tagging", "--method", "get",
-						fmt.Sprintf("cos://%s", testAlias)}
+					args := []string{"object-tagging", "--method", "get",
+						cosFileName}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -191,8 +198,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("get not exist", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "get",
-						fmt.Sprintf("cos://%s", testAlias)}
+					args := []string{"object-tagging", "--method", "get",
+						cosFileName}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -203,7 +210,7 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("not enough arguments", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "delete"}
+					args := []string{"object-tagging", "--method", "delete"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -212,8 +219,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("delete bucket not exist", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "delete",
-						fmt.Sprintf("cos://%s", testAlias)}
+					args := []string{"object-tagging", "--method", "delete",
+						cosFileName}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -226,8 +233,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 						return nil, fmt.Errorf("test delete client error")
 					})
 					defer patches.Reset()
-					args := []string{"bucket-tagging", "--method", "delete",
-						fmt.Sprintf("cos://%s", testAlias)}
+					args := []string{"object-tagging", "--method", "delete",
+						cosFileName}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -241,8 +248,8 @@ func TestBucketTaggingCmd(t *testing.T) {
 						return nil, fmt.Errorf("test delete tagging error")
 					})
 					defer patches.Reset()
-					args := []string{"bucket-tagging", "--method", "delete",
-						fmt.Sprintf("cos://%s", testAlias)}
+					args := []string{"object-tagging", "--method", "delete",
+						cosFileName}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
@@ -253,109 +260,22 @@ func TestBucketTaggingCmd(t *testing.T) {
 				Convey("invalid tag format", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "delete",
-						fmt.Sprintf("cos://%s", testAlias), "testkey2"}
+					args := []string{"object-tagging", "--method", "delete",
+						cosFileName, "testkey2"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					So(e, ShouldBeError)
 				})
-				Convey("BucketTagging not exist", func() {
+				Convey("ObjectTagging not exist", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"bucket-tagging", "--method", "delete",
-						fmt.Sprintf("cos://%s", testAlias), "testkey101#11"}
+					args := []string{"object-tagging", "--method", "delete",
+						cosFileName, "testkey101#11"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					So(e, ShouldBeError)
 				})
 			})
-		})
-	})
-}
-
-func TestDesDeleteBucketTagging(t *testing.T) {
-	testBucket = randStr(8)
-	testAlias = testBucket + "-alias"
-	setUp(testBucket, testAlias, testEndpoint, false, false)
-	defer tearDown(testBucket, testAlias, testEndpoint, false)
-	clearCmd()
-	cmd := rootCmd
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	args := []string{"bucket-tagging", "--method", "put",
-		fmt.Sprintf("cos://%s", testAlias), "testkey1#testval1", "testkey2#testval2", "testkey3#testval3"}
-	cmd.SetArgs(args)
-	cmd.Execute()
-	Convey("test delete des bucket tagging", t, func() {
-		Convey("fail", func() {
-			Convey("NewClient fail", func() {
-				patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
-					return nil, fmt.Errorf("test delete client error")
-				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", testAlias), "testkey1#testval1", "testkey2#testval2"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("GetTagging", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", "testAlias"), "testkey1#testval1", "testkey2#testval2"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("not exist", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", testAlias), "testkey4#testval4", "testkey2#testval2"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("invalid argument", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", testAlias), "testkey4testval4", "testkey2#testval2"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("PutTagging", func() {
-				var c *cos.BucketService
-				patches := ApplyMethodFunc(c, "PutTagging", func(ctx context.Context, opt *cos.BucketPutTaggingOptions) (*cos.Response, error) {
-					return nil, fmt.Errorf("test PutTagging fial")
-				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", testAlias), "testkey1#testval1", "testkey2#testval2"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-		})
-		Convey("success", func() {
-			clearCmd()
-			cmd := rootCmd
-			args := []string{"bucket-tagging", "--method", "delete",
-				fmt.Sprintf("cos://%s", testAlias), "testkey1#testval1", "testkey2#testval2"}
-			cmd.SetArgs(args)
-			e := cmd.Execute()
-			So(e, ShouldBeNil)
 		})
 	})
 }
