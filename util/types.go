@@ -121,6 +121,14 @@ type Operation struct {
 	Move              bool
 	SkipDir           bool
 	Update            bool
+	Acl               string
+	GrantRead         string
+	GrantWrite        string
+	GrantReadAcp      string
+	GrantWriteAcp     string
+	GrantFullControl  string
+	Tags              string
+	ForbidOverWrite   string
 }
 
 // ErrOutput 错误输出信息

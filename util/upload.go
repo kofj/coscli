@@ -6,6 +6,7 @@ import (
 	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -206,12 +207,12 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		opt := &cos.MultiUploadOptions{
 			OptIni: &cos.InitiateMultipartUploadOptions{
 				ACLHeaderOptions: &cos.ACLHeaderOptions{
-					XCosACL:              "",
-					XCosGrantRead:        "",
-					XCosGrantWrite:       "",
-					XCosGrantFullControl: "",
-					XCosGrantReadACP:     "",
-					XCosGrantWriteACP:    "",
+					XCosACL:              fo.Operation.Acl,
+					XCosGrantRead:        fo.Operation.GrantRead,
+					XCosGrantWrite:       fo.Operation.GrantWrite,
+					XCosGrantFullControl: fo.Operation.GrantFullControl,
+					XCosGrantReadACP:     fo.Operation.GrantReadAcp,
+					XCosGrantWriteACP:    fo.Operation.GrantWriteAcp,
 				},
 				ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{
 					CacheControl:             fo.Operation.Meta.CacheControl,
@@ -230,7 +231,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 					XCosSSECustomerAglo:      "",
 					XCosSSECustomerKey:       "",
 					XCosSSECustomerKeyMD5:    "",
-					XOptionHeader:            nil,
+					XOptionHeader:            &http.Header{},
 					XCosTrafficLimit:         (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
 				},
 			},
@@ -238,6 +239,13 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 			ThreadPoolSize:  threadNum,
 			CheckPoint:      true,
 			DisableChecksum: fo.Operation.DisableChecksum,
+		}
+
+		if fo.Operation.Tags != "" {
+			opt.OptIni.XOptionHeader.Add("x-cos-tagging", fo.Operation.Tags)
+		}
+		if fo.Operation.ForbidOverWrite != "" {
+			opt.OptIni.XOptionHeader.Add("x-cos-forbid-overwrite", fo.Operation.ForbidOverWrite)
 		}
 
 		counter := &Counter{TransferSize: 0}

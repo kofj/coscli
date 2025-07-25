@@ -62,6 +62,14 @@ Example:
 		force, _ := cmd.Flags().GetBool("force")
 		skipDir, _ := cmd.Flags().GetBool("skip-dir")
 		update, _ := cmd.Flags().GetBool("update")
+		acl, _ := cmd.Flags().GetString("acl")
+		grantRead, _ := cmd.Flags().GetString("grant-read")
+		grantWrite, _ := cmd.Flags().GetString("grant-write")
+		grantReadAcp, _ := cmd.Flags().GetString("grant-read-acp")
+		grantWriteAcp, _ := cmd.Flags().GetString("grant-write-acp")
+		grantFullControl, _ := cmd.Flags().GetString("grant-full-control")
+		tags, _ := cmd.Flags().GetString("tags")
+		forbidOverwrite, _ := cmd.Flags().GetString("forbid-overwrite")
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
@@ -126,6 +134,14 @@ Example:
 				Force:             force,
 				SkipDir:           skipDir,
 				Update:            update,
+				Acl:               acl,
+				GrantRead:         grantRead,
+				GrantWrite:        grantWrite,
+				GrantReadAcp:      grantReadAcp,
+				GrantWriteAcp:     grantWriteAcp,
+				GrantFullControl:  grantFullControl,
+				Tags:              tags,
+				ForbidOverWrite:   forbidOverwrite,
 			},
 			Monitor:       &util.FileProcessMonitor{},
 			Config:        &config,
@@ -330,4 +346,12 @@ func init() {
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
 	syncCmd.Flags().Bool("skip-dir", false, "Skip folders during upload.")
 	syncCmd.Flags().Bool("update", false, "The upload will only be performed if the target file does not exist, or if the source file's last modified time is later than the target file's.")
+	syncCmd.Flags().String("acl", "", "Defines the Access Control List (ACL) property of an object. The default value is default.")
+	syncCmd.Flags().String("grant-read", "", "Grants the grantee permission to read the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
+	syncCmd.Flags().String("grant-write", "", "Grants the grantee permission to write the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id='100000000001',id=\"100000000002\".")
+	syncCmd.Flags().String("grant-read-acp", "", "Grants the grantee permission to read the object's Access Control List (ACL). The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
+	syncCmd.Flags().String("grant-write-acp", "", "Grants the grantee permission to write the object's Access Control List (ACL). The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
+	syncCmd.Flags().String("grant-full-control", "", "Grants the grantee full permissions to operate on the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
+	syncCmd.Flags().String("tags", "", "The set of tags for the object, with a maximum of 10 tags (e.g., Key1=Value1 & Key2=Value2). The Key and Value in the tag set must be URL-encoded beforehand.")
+	syncCmd.Flags().String("forbid-overwrite", "false", "For storage buckets without versioning enabled, if not specified or set to false, uploading will overwrite objects with the same name by default; if set to true, overwriting objects with the same name is prohibited.")
 }

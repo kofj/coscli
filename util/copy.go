@@ -6,6 +6,7 @@ import (
 	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -226,12 +227,28 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 				Expires:            fo.Operation.Meta.Expires,
 				XCosStorageClass:   fo.Operation.StorageClass,
 				XCosMetaXXX:        fo.Operation.Meta.XCosMetaXXX,
+				XOptionHeader:      &http.Header{},
 			},
-			nil,
+			&cos.ACLHeaderOptions{
+				XCosACL:              fo.Operation.Acl,
+				XCosGrantRead:        fo.Operation.GrantRead,
+				XCosGrantWrite:       fo.Operation.GrantWrite,
+				XCosGrantFullControl: fo.Operation.GrantFullControl,
+				XCosGrantReadACP:     fo.Operation.GrantReadAcp,
+				XCosGrantWriteACP:    fo.Operation.GrantWriteAcp,
+			},
 		},
 		PartSize:       fo.Operation.PartSize,
 		ThreadPoolSize: threadNum,
 	}
+
+	if fo.Operation.Tags != "" {
+		opt.OptCopy.XOptionHeader.Add("x-cos-tagging", fo.Operation.Tags)
+	}
+	if fo.Operation.ForbidOverWrite != "" {
+		opt.OptCopy.XOptionHeader.Add("x-cos-forbid-overwrite", fo.Operation.ForbidOverWrite)
+	}
+
 	if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||
 		fo.Operation.Meta.ContentType != "" || fo.Operation.Meta.Expires != "" || fo.Operation.Meta.MetaChange {
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/olekukonko/tablewriter"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -222,4 +223,33 @@ func AddObjectTagging(c *cos.Client, object string, tags []string) error {
 		return err
 	}
 	return nil
+}
+
+// EncodeTagging 对输入的标签字符串进行处理并编码
+func EncodeTagging(tags string) (string, error) {
+	if len(tags) == 0 {
+		return "", nil
+	}
+	// 去掉字符串中的所有空格
+	cleanTags := strings.ReplaceAll(tags, " ", "")
+
+	// 将标签字符串按 & 拆分为多个键值对
+	tagsList := strings.Split(cleanTags, "&")
+	var encodedTags []string
+
+	// 遍历每个键值对，分别对 Key 和 Value 进行 URL 编码
+	for _, tag := range tagsList {
+		// 按等号拆分成 Key 和 Value
+		kv := strings.SplitN(tag, "=", 2) // 最多拆分成两部分
+		if len(kv) == 2 {
+			encodedKey := url.QueryEscape(kv[0])
+			encodedValue := url.QueryEscape(kv[1])
+			encodedTags = append(encodedTags, fmt.Sprintf("%s=%s", encodedKey, encodedValue))
+		} else {
+			return "", fmt.Errorf("error tags format:%s", tag)
+		}
+	}
+
+	// 使用 & 符号连接多个编码后的键值对
+	return strings.Join(encodedTags, "&"), nil
 }
