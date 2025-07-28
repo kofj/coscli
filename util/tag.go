@@ -118,7 +118,8 @@ func AddBucketTagging(c *cos.Client, tags []string) error {
 	return nil
 }
 
-func PutObjectTagging(c *cos.Client, object string, tags []string) error {
+func PutObjectTagging(c *cos.Client, object string, tags []string, versionId, bucketType string) error {
+	var err error
 	tg := &cos.ObjectPutTaggingOptions{}
 	for i := 0; i < len(tags); i += 1 {
 		tmp := strings.Split(tags[i], "#")
@@ -128,8 +129,12 @@ func PutObjectTagging(c *cos.Client, object string, tags []string) error {
 			return fmt.Errorf("invalid tag")
 		}
 	}
+	if bucketType == BucketTypeOfs {
+		_, err = c.Object.PutTagging(context.Background(), object, tg)
+	} else {
+		_, err = c.Object.PutTagging(context.Background(), object, tg, versionId)
+	}
 
-	_, err := c.Object.PutTagging(context.Background(), object, tg)
 	if err != nil {
 		return err
 	}
@@ -137,8 +142,15 @@ func PutObjectTagging(c *cos.Client, object string, tags []string) error {
 	return nil
 }
 
-func GetObjectTagging(c *cos.Client, object string) error {
-	v, _, err := c.Object.GetTagging(context.Background(), object)
+func GetObjectTagging(c *cos.Client, object, versionId, bucketType string) error {
+	var err error
+	var v *cos.ObjectGetTaggingResult
+	if bucketType == BucketTypeOfs {
+		v, _, err = c.Object.GetTagging(context.Background(), object)
+	} else {
+		v, _, err = c.Object.GetTagging(context.Background(), object, versionId)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -154,21 +166,34 @@ func GetObjectTagging(c *cos.Client, object string) error {
 	return nil
 }
 
-func DeleteObjectTagging(c *cos.Client, object string) error {
-	_, err := c.Object.DeleteTagging(context.Background(), object)
+func DeleteObjectTagging(c *cos.Client, object, versionId, bucketType string) error {
+	var err error
+	if bucketType == BucketTypeOfs {
+		_, err = c.Object.DeleteTagging(context.Background(), object)
+	} else {
+		_, err = c.Object.DeleteTagging(context.Background(), object, versionId)
+	}
+
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func DeleteDesObjectTagging(c *cos.Client, object string, tags []string) error {
-	d, _, err := c.Object.GetTagging(context.Background(), object)
+func DeleteDesObjectTagging(c *cos.Client, object string, tags []string, versionId, bucketType string) error {
+	var err error
+	var res *cos.ObjectGetTaggingResult
+	if bucketType == BucketTypeOfs {
+		res, _, err = c.Object.GetTagging(context.Background(), object)
+	} else {
+		res, _, err = c.Object.GetTagging(context.Background(), object, versionId)
+	}
+
 	if err != nil {
 		return err
 	}
 	table := make(map[string]string)
-	for _, t := range d.TagSet {
+	for _, t := range res.TagSet {
 		table[t.Key] = t.Value
 	}
 	for i := 0; i < len(tags); i += 1 {
@@ -187,20 +212,32 @@ func DeleteDesObjectTagging(c *cos.Client, object string, tags []string) error {
 		tg.TagSet = append(tg.TagSet, cos.ObjectTaggingTag{Key: a, Value: b})
 	}
 
-	_, err = c.Object.PutTagging(context.Background(), object, tg)
+	if bucketType == BucketTypeOfs {
+		_, err = c.Object.PutTagging(context.Background(), object, tg)
+	} else {
+		_, err = c.Object.PutTagging(context.Background(), object, tg, versionId)
+	}
+
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func AddObjectTagging(c *cos.Client, object string, tags []string) error {
-	d, _, err := c.Object.GetTagging(context.Background(), object)
+func AddObjectTagging(c *cos.Client, object string, tags []string, versionId, bucketType string) error {
+	var err error
+	var res *cos.ObjectGetTaggingResult
+	if bucketType == BucketTypeOfs {
+		res, _, err = c.Object.GetTagging(context.Background(), object)
+	} else {
+		res, _, err = c.Object.GetTagging(context.Background(), object, versionId)
+	}
+
 	if err != nil {
 		return err
 	}
 	table := make(map[string]string)
-	for _, t := range d.TagSet {
+	for _, t := range res.TagSet {
 		table[t.Key] = t.Value
 	}
 	for i := 0; i < len(tags); i += 1 {
@@ -217,8 +254,12 @@ func AddObjectTagging(c *cos.Client, object string, tags []string) error {
 	for a, b := range table {
 		tg.TagSet = append(tg.TagSet, cos.ObjectTaggingTag{Key: a, Value: b})
 	}
+	if bucketType == BucketTypeOfs {
+		_, err = c.Object.PutTagging(context.Background(), object, tg)
+	} else {
+		_, err = c.Object.PutTagging(context.Background(), object, tg, versionId)
+	}
 
-	_, err = c.Object.PutTagging(context.Background(), object, tg)
 	if err != nil {
 		return err
 	}

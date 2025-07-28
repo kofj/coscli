@@ -22,6 +22,7 @@ Example:
 	./coscli object-tagging --method delete cos://examplebucket/exampleobject tag1#test1 tag2#test2`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		method, _ := cmd.Flags().GetString("method")
+		versionId, _ := cmd.Flags().GetString("version-id")
 
 		var err error
 		cosPath := args[0]
@@ -35,34 +36,39 @@ Example:
 			return err
 		}
 
+		bucketType, err := util.GetBucketType(c, &param, &config, bucketName)
+		if err != nil {
+			return err
+		}
+
 		if method == "put" {
 			if len(args) < 2 {
 				return fmt.Errorf("not enough arguments in call to put object tagging")
 			}
-			err = util.PutObjectTagging(c, object, args[1:])
+			err = util.PutObjectTagging(c, object, args[1:], versionId, bucketType)
 		}
 
 		if method == "add" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to get object tagging")
 			}
-			err = util.AddObjectTagging(c, object, args[1:])
+			err = util.AddObjectTagging(c, object, args[1:], versionId, bucketType)
 		}
 
 		if method == "get" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to get object tagging")
 			}
-			err = util.GetObjectTagging(c, object)
+			err = util.GetObjectTagging(c, object, versionId, bucketType)
 		}
 
 		if method == "delete" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to delete object tagging")
 			} else if len(args) == 1 {
-				err = util.DeleteObjectTagging(c, object)
+				err = util.DeleteObjectTagging(c, object, versionId, bucketType)
 			} else {
-				err = util.DeleteDesObjectTagging(c, object, args[1:])
+				err = util.DeleteDesObjectTagging(c, object, args[1:], versionId, bucketType)
 			}
 		}
 
@@ -73,4 +79,5 @@ Example:
 func init() {
 	rootCmd.AddCommand(objectTaggingCmd)
 	objectTaggingCmd.Flags().String("method", "", "put/get/delete")
+	objectTaggingCmd.Flags().String("version-id", "", "tagging a specified version of a file , only available if bucket versioning is enabled.")
 }
