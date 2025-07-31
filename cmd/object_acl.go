@@ -12,10 +12,10 @@ var objectAclCmd = &cobra.Command{
 	Long: `Modify object acl
 
 Format:
-	./coscli object-acl --method [method] cos://<bucket-name> [tag_key]#[tag_value]
+	./coscli object-acl --method [method] cos://<bucket-name>
 
 Example:
-	./coscli object-acl --method put cos://examplebucket/exampleobject
+	./coscli object-acl --method put cos://examplebucket/exampleobject  --grant-read="id=\"100000000003\",id=\"100000000002\""
 	./coscli object-acl --method get cos://examplebucket/exampleobject`,
 
 	RunE: func(cmd *cobra.Command, args []string) error {
