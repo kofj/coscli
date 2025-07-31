@@ -18,6 +18,8 @@ func TestObjectTaggingCmd(t *testing.T) {
 	testAlias = testBucket + "-alias"
 	setUp(testBucket, testAlias, testEndpoint, false, false)
 	defer tearDown(testBucket, testAlias, testEndpoint, false)
+	setUp(testOfsBucket, testOfsBucketAlias, testEndpoint, true, false)
+	defer tearDown(testOfsBucket, testOfsBucketAlias, testEndpoint, false)
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true
@@ -25,57 +27,114 @@ func TestObjectTaggingCmd(t *testing.T) {
 	genDir(testDir, 3)
 	defer delDir(testDir)
 	localFileName := fmt.Sprintf("%s/small-file", testDir)
+	// 上传cos文件
 	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
 	args := []string{"cp", localFileName, cosFileName, "-r"}
 	cmd.SetArgs(args)
 	cmd.Execute()
-	Convey("test coscli bucket_tagging", t, func() {
+
+	// 上传ofs文件
+	ofsFileName := fmt.Sprintf("cos://%s/%s", testOfsBucketAlias, "multi-small")
+	args = []string{"cp", localFileName, ofsFileName, "-r"}
+	cmd.SetArgs(args)
+	cmd.Execute()
+	Convey("test coscli object_tagging", t, func() {
 		Convey("success", func() {
-			Convey("put", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"object-tagging", "--method", "put",
-					cosFileName, "testkey#testval"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
+			Convey("cos", func() {
+				Convey("put", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "put",
+						cosFileName, "testkey#testval"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
+				Convey("add", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "add",
+						cosFileName, "testkey2#testval2"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
+				Convey("get", func() {
+					time.Sleep(time.Second)
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "get",
+						cosFileName}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
+				Convey("delete", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "delete",
+						cosFileName}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
+				Convey("deleteDes", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "delete",
+						cosFileName, "testkey2#testval2"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
 			})
-			Convey("add", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"object-tagging", "--method", "add",
-					cosFileName, "testkey2#testval2"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("get", func() {
-				time.Sleep(time.Second)
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"object-tagging", "--method", "get",
-					cosFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("delete", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"object-tagging", "--method", "delete",
-					cosFileName}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
-			Convey("deleteDes", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"object-tagging", "--method", "delete",
-					cosFileName, "testkey2#testval2"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
+			Convey("ofs", func() {
+				Convey("put", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "put",
+						ofsFileName, "testkey#testval"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
+				Convey("add", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "add",
+						ofsFileName, "testkey2#testval2"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
+				Convey("get", func() {
+					time.Sleep(time.Second)
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "get",
+						ofsFileName}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
+				Convey("delete", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "delete",
+						ofsFileName}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
+				Convey("deleteDes", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-tagging", "--method", "delete",
+						ofsFileName, "testkey2#testval2"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeNil)
+				})
 			})
 		})
 		Convey("fail", func() {

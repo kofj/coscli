@@ -170,3 +170,13 @@ type LsCounter struct {
 	RenderNum  int
 	Table      *tablewriter.Table
 }
+
+// 定义一个结构体存放 ACL 参数
+type ACLSettings struct {
+	ACL              string
+	GrantRead        string
+	GrantWrite       string
+	GrantReadACP     string
+	GrantWriteACP    string
+	GrantFullControl string
+}

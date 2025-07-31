@@ -78,6 +78,6 @@ Example:
 
 func init() {
 	rootCmd.AddCommand(objectTaggingCmd)
-	objectTaggingCmd.Flags().String("method", "", "put/get/delete")
+	objectTaggingCmd.Flags().String("method", "", "put/add/get/delete")
 	objectTaggingCmd.Flags().String("version-id", "", "tagging a specified version of a file , only available if bucket versioning is enabled.")
 }

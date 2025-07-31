@@ -69,5 +69,5 @@ Example:
 
 func init() {
 	rootCmd.AddCommand(bucketTaggingCmd)
-	bucketTaggingCmd.Flags().String("method", "", "put/get/delete")
+	bucketTaggingCmd.Flags().String("method", "", "put/add/get/delete")
 }

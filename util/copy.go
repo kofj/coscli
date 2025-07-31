@@ -230,9 +230,9 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 				XOptionHeader:      &http.Header{},
 			},
 			&cos.ACLHeaderOptions{
-				XCosACL:              fo.Operation.Acl,
-				XCosGrantRead:        fo.Operation.GrantRead,
-				XCosGrantWrite:       fo.Operation.GrantWrite,
+				XCosACL:       fo.Operation.Acl,
+				XCosGrantRead: fo.Operation.GrantRead,
+				//XCosGrantWrite:       fo.Operation.GrantWrite,
 				XCosGrantFullControl: fo.Operation.GrantFullControl,
 				XCosGrantReadACP:     fo.Operation.GrantReadAcp,
 				XCosGrantWriteACP:    fo.Operation.GrantWriteAcp,

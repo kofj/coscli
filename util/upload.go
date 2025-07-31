@@ -207,9 +207,9 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		opt := &cos.MultiUploadOptions{
 			OptIni: &cos.InitiateMultipartUploadOptions{
 				ACLHeaderOptions: &cos.ACLHeaderOptions{
-					XCosACL:              fo.Operation.Acl,
-					XCosGrantRead:        fo.Operation.GrantRead,
-					XCosGrantWrite:       fo.Operation.GrantWrite,
+					XCosACL:       fo.Operation.Acl,
+					XCosGrantRead: fo.Operation.GrantRead,
+					//XCosGrantWrite:       fo.Operation.GrantWrite,
 					XCosGrantFullControl: fo.Operation.GrantFullControl,
 					XCosGrantReadACP:     fo.Operation.GrantReadAcp,
 					XCosGrantWriteACP:    fo.Operation.GrantWriteAcp,
