@@ -51,7 +51,7 @@ func TestObjectAclCmd(t *testing.T) {
 				Convey("get", func() {
 					clearCmd()
 					cmd := rootCmd
-					args := []string{"object-acl", "--method", "add",
+					args := []string{"object-acl", "--method", "get",
 						cosFileName}
 					cmd.SetArgs(args)
 					e := cmd.Execute()

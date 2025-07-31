@@ -9,6 +9,41 @@ import (
 	"strings"
 )
 
+func PutBucketAcl(c *cos.Client, aclSettings ACLSettings) error {
+	var err error
+	opt := &cos.BucketPutACLOptions{
+		Header: &cos.ACLHeaderOptions{
+			XCosACL:              aclSettings.ACL,
+			XCosGrantRead:        aclSettings.GrantRead,
+			XCosGrantWrite:       aclSettings.GrantWrite,
+			XCosGrantReadACP:     aclSettings.GrantReadACP,
+			XCosGrantWriteACP:    aclSettings.GrantWriteACP,
+			XCosGrantFullControl: aclSettings.GrantFullControl,
+		},
+	}
+	_, err = c.Bucket.PutACL(context.Background(), opt)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetBucketAcl(c *cos.Client) error {
+	var err error
+	var acl *cos.BucketGetACLResult
+	acl, _, err = c.Bucket.GetACL(context.Background())
+
+	if err != nil {
+		return err
+	}
+	// 渲染表格
+	RenderACLTable(acl)
+
+	return nil
+}
+
 func PutObjectAcl(c *cos.Client, object, versionId, bucketType string, aclSettings ACLSettings) error {
 	var err error
 	opt := &cos.ObjectPutACLOptions{
