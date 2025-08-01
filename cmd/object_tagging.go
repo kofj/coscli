@@ -20,6 +20,7 @@ Example:
 	./coscli object-tagging --method get cos://examplebucket/exampleobject
 	./coscli object-tagging --method delete cos://examplebucket/exampleobject
 	./coscli object-tagging --method delete cos://examplebucket/exampleobject tag1#test1 tag2#test2`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		method, _ := cmd.Flags().GetString("method")
 		versionId, _ := cmd.Flags().GetString("version-id")
@@ -46,23 +47,17 @@ Example:
 				return fmt.Errorf("not enough arguments in call to put object tagging")
 			}
 			err = util.PutObjectTagging(c, object, args[1:], versionId, bucketType)
-		}
-
-		if method == "add" {
+		} else if method == "add" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to get object tagging")
 			}
 			err = util.AddObjectTagging(c, object, args[1:], versionId, bucketType)
-		}
-
-		if method == "get" {
+		} else if method == "get" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to get object tagging")
 			}
 			err = util.GetObjectTagging(c, object, versionId, bucketType)
-		}
-
-		if method == "delete" {
+		} else if method == "delete" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to delete object tagging")
 			} else if len(args) == 1 {
@@ -70,6 +65,8 @@ Example:
 			} else {
 				err = util.DeleteDesObjectTagging(c, object, args[1:], versionId, bucketType)
 			}
+		} else {
+			err = fmt.Errorf("method '%s' is not supported, valid methods are 'put','add','get', and 'delete'", method)
 		}
 
 		return err

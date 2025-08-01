@@ -20,6 +20,7 @@ Example:
 	./coscli bucket-tagging --method get cos://examplebucket
 	./coscli bucket-tagging --method delete cos://examplebucket
 	./coscli bucket-tagging --method delete cos://examplebucket tag1#test1 tag2#test2`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		method, _ := cmd.Flags().GetString("method")
 
@@ -37,23 +38,17 @@ Example:
 				return fmt.Errorf("not enough arguments in call to put bucket tagging")
 			}
 			err = util.PutBucketTagging(c, args[1:])
-		}
-
-		if method == "add" {
+		} else if method == "add" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to get bucket tagging")
 			}
 			err = util.AddBucketTagging(c, args[1:])
-		}
-
-		if method == "get" {
+		} else if method == "get" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to get bucket tagging")
 			}
 			err = util.GetBucketTagging(c)
-		}
-
-		if method == "delete" {
+		} else if method == "delete" {
 			if len(args) < 1 {
 				return fmt.Errorf("not enough arguments in call to delete bucket tagging")
 			} else if len(args) == 1 {
@@ -61,6 +56,8 @@ Example:
 			} else {
 				err = util.DeleteDesBucketTagging(c, args[1:])
 			}
+		} else {
+			err = fmt.Errorf("method '%s' is not supported, valid methods are 'put','add','get', and 'delete'", method)
 		}
 
 		return err

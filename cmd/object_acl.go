@@ -17,7 +17,7 @@ Format:
 Example:
 	./coscli object-acl --method put cos://examplebucket/exampleobject  --grant-read="id=\"100000000003\",id=\"100000000002\""
 	./coscli object-acl --method get cos://examplebucket/exampleobject`,
-
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var aclSettings util.ACLSettings
 		method, _ := cmd.Flags().GetString("method")
@@ -48,10 +48,10 @@ Example:
 
 		if method == "put" {
 			err = util.PutObjectAcl(c, object, versionId, bucketType, aclSettings)
-		}
-
-		if method == "get" {
+		} else if method == "get" {
 			err = util.GetObjectAcl(c, object, versionId, bucketType)
+		} else {
+			err = fmt.Errorf("method '%s' is not supported, valid methods are 'put' and 'get'", method)
 		}
 
 		return err

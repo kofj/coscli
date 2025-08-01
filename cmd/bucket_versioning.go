@@ -18,6 +18,7 @@ Format:
 Example:
 	./coscli bucket-versioning --method put cos://examplebucket versioning
 	./coscli bucket-versioning --method get cos://examplebucket`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		method, _ := cmd.Flags().GetString("method")
 

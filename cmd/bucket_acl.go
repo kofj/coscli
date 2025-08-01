@@ -17,7 +17,7 @@ Format:
 Example:
 	./coscli bucket-acl --method put cos://examplebucket  --grant-read="id=\"100000000003\",id=\"100000000002\""
 	./coscli bucket-acl --method get cos://examplebucket`,
-
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var aclSettings util.ACLSettings
 		method, _ := cmd.Flags().GetString("method")
@@ -42,10 +42,10 @@ Example:
 
 		if method == "put" {
 			err = util.PutBucketAcl(c, aclSettings)
-		}
-
-		if method == "get" {
+		} else if method == "get" {
 			err = util.GetBucketAcl(c)
+		} else {
+			err = fmt.Errorf("method '%s' is not supported, valid methods are 'put' and 'get'", method)
 		}
 
 		return err
@@ -57,7 +57,7 @@ func init() {
 	bucketAclCmd.Flags().String("method", "", "put/get")
 	bucketAclCmd.Flags().String("acl", "", "Defines the Access Control List (ACL) property of an bucket. The default value is default.")
 	bucketAclCmd.Flags().String("grant-read", "", "Grants the grantee permission to read the bucket. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
-	bucketAclCmd.Flags().String("grant-write", "", "Grants the grantee permission to write the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id='100000000001',id=\"100000000002\".")
+	bucketAclCmd.Flags().String("grant-write", "", "Grants the grantee permission to write the bucket. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id='100000000001',id=\"100000000002\".")
 	bucketAclCmd.Flags().String("grant-read-acp", "", "Grants the grantee permission to read the bucket's Access Control List (ACL). The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
 	bucketAclCmd.Flags().String("grant-write-acp", "", "Grants the grantee permission to write the bucket's Access Control List (ACL). The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
 	bucketAclCmd.Flags().String("grant-full-control", "", "Grants the grantee full permissions to operate on the bucket. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
