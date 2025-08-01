@@ -15,7 +15,7 @@ Format:
 	./coscli bucket-policy --method [method] cos://<bucket-name>
 
 Example:
-	./coscli bucket-policy --method put cos://examplebucket  --policy={"Statement":[{"Principal":{"qcs":["qcs::cam::uin/100000000001:uin/100000000011"]},"Effect":"allow","Action":["name/cos:GetBucket"],"Resource":["qcs::cos:ap-guangzhou:uid/1250000000:examplebucket-1250000000/*"]}],"version":"2.0"}
+	./coscli bucket-policy --method put cos://examplebucket  --policy="{\"Statement\":[{\"Principal\":{\"qcs\":[\"qcs::cam::uin/100000000001:uin/100000000011\"]},\"Effect\":\"allow\",\"Action\":[\"name/cos:GetBucket\"],\"Resource\":[\"qcs::cos:ap-guangzhou:uid/1250000000:examplebucket-1250000000/*\"]}],\"version\":\"2.0\"}"
 	./coscli bucket-policy --method get cos://examplebucket
     ./coscli bucket-policy --method delete cos://examplebucket`,
 	Args: cobra.ExactArgs(1),
