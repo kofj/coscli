@@ -220,14 +220,19 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	opt := &cos.MultiCopyOptions{
 		OptCopy: &cos.ObjectCopyOptions{
 			&cos.ObjectCopyHeaderOptions{
-				CacheControl:       fo.Operation.Meta.CacheControl,
-				ContentDisposition: fo.Operation.Meta.ContentDisposition,
-				ContentEncoding:    fo.Operation.Meta.ContentEncoding,
-				ContentType:        fo.Operation.Meta.ContentType,
-				Expires:            fo.Operation.Meta.Expires,
-				XCosStorageClass:   fo.Operation.StorageClass,
-				XCosMetaXXX:        fo.Operation.Meta.XCosMetaXXX,
-				XOptionHeader:      &http.Header{},
+				CacheControl:             fo.Operation.Meta.CacheControl,
+				ContentDisposition:       fo.Operation.Meta.ContentDisposition,
+				ContentEncoding:          fo.Operation.Meta.ContentEncoding,
+				ContentType:              fo.Operation.Meta.ContentType,
+				Expires:                  fo.Operation.Meta.Expires,
+				ContentLanguage:          fo.Operation.Meta.ContentLanguage,
+				XCosStorageClass:         fo.Operation.StorageClass,
+				XCosMetaXXX:              fo.Operation.Meta.XCosMetaXXX,
+				XCosServerSideEncryption: fo.Operation.ServerSideEncryption,
+				XCosSSECustomerAglo:      fo.Operation.SSECustomerAglo,
+				XCosSSECustomerKey:       fo.Operation.SSECustomerKey,
+				XCosSSECustomerKeyMD5:    fo.Operation.SSECustomerKeyMD5,
+				XOptionHeader:            &http.Header{},
 			},
 			&cos.ACLHeaderOptions{
 				XCosACL:       fo.Operation.Acl,

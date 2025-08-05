@@ -88,47 +88,51 @@ type FileOperations struct {
 
 // Operation 文件操作参数
 type Operation struct {
-	Recursive         bool
-	Filters           []FilterOptionType
-	StorageClass      string
-	RateLimiting      float32
-	PartSize          int64
-	ThreadNum         int
-	Routines          int
-	FailOutput        bool
-	FailOutputPath    string
-	ProcessLog        bool
-	ProcessLogPath    string
-	Meta              Meta
-	RetryNum          int
-	ErrRetryNum       int
-	ErrRetryInterval  int
-	OnlyCurrentDir    bool
-	DisableAllSymlink bool
-	EnableSymlinkDir  bool
-	DisableCrc64      bool
-	DisableChecksum   bool
-	DisableLongLinks  bool
-	LongLinksNums     int
-	VersionId         string
-	AllVersions       bool
-	SnapshotPath      string
-	Delete            bool
-	BackupDir         string
-	Force             bool
-	Days              int
-	RestoreMode       string
-	Move              bool
-	SkipDir           bool
-	Update            bool
-	Acl               string
-	GrantRead         string
-	GrantWrite        string
-	GrantReadAcp      string
-	GrantWriteAcp     string
-	GrantFullControl  string
-	Tags              string
-	ForbidOverWrite   string
+	Recursive            bool
+	Filters              []FilterOptionType
+	StorageClass         string
+	RateLimiting         float32
+	PartSize             int64
+	ThreadNum            int
+	Routines             int
+	FailOutput           bool
+	FailOutputPath       string
+	ProcessLog           bool
+	ProcessLogPath       string
+	Meta                 Meta
+	RetryNum             int
+	ErrRetryNum          int
+	ErrRetryInterval     int
+	OnlyCurrentDir       bool
+	DisableAllSymlink    bool
+	EnableSymlinkDir     bool
+	DisableCrc64         bool
+	DisableChecksum      bool
+	DisableLongLinks     bool
+	LongLinksNums        int
+	VersionId            string
+	AllVersions          bool
+	SnapshotPath         string
+	Delete               bool
+	BackupDir            string
+	Force                bool
+	Days                 int
+	RestoreMode          string
+	Move                 bool
+	SkipDir              bool
+	Update               bool
+	Acl                  string
+	GrantRead            string
+	GrantWrite           string
+	GrantReadAcp         string
+	GrantWriteAcp        string
+	GrantFullControl     string
+	Tags                 string
+	ForbidOverWrite      string
+	ServerSideEncryption string
+	SSECustomerAglo      string
+	SSECustomerKey       string
+	SSECustomerKeyMD5    string
 }
 
 // ErrOutput 错误输出信息
@@ -171,7 +175,6 @@ type LsCounter struct {
 	Table      *tablewriter.Table
 }
 
-// 定义一个结构体存放 ACL 参数
 type ACLSettings struct {
 	ACL              string
 	GrantRead        string
@@ -179,4 +182,10 @@ type ACLSettings struct {
 	GrantReadACP     string
 	GrantWriteACP    string
 	GrantFullControl string
+}
+
+type BucketEncryptionSettings struct {
+	SSEAlgorithm   string
+	KMSMasterKeyID string
+	KMSAlgorithm   string
 }
