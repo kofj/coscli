@@ -189,3 +189,9 @@ type BucketEncryptionSettings struct {
 	KMSMasterKeyID string
 	KMSAlgorithm   string
 }
+
+type BucketInventorySettings struct {
+	ID             string
+	KMSMasterKeyID string
+	KMSAlgorithm   string
+}
