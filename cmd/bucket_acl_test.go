@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"coscli/util"
 	"fmt"
+	"github.com/agiledragon/gomonkey/v2"
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"reflect"
 	"testing"
 )
 
@@ -26,9 +29,24 @@ func TestBucketAclCmd(t *testing.T) {
 		Convey("success", func() {
 			Convey("put", func() {
 				clearCmd()
+				// 创建模拟的 BucketService
+				mockBucketService := &cos.BucketService{}
+				// 创建打桩
+				patches := gomonkey.NewPatches()
+				defer patches.Reset()
+
+				// 打桩 BucketService.PutACL 方法
+				patches.ApplyMethod(
+					reflect.TypeOf(mockBucketService), // 目标类型
+					"PutACL",                          // 方法名
+					func(_ *cos.BucketService, ctx context.Context, opt *cos.BucketPutACLOptions) (*cos.Response, error) {
+						return nil, nil
+					},
+				)
+
 				cmd := rootCmd
 				args := []string{"bucket-acl", "--method", "put",
-					testBucket, "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
+					fmt.Sprintf("cos://%s", testAlias), "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -37,7 +55,7 @@ func TestBucketAclCmd(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-acl", "--method", "get",
-					testBucket}
+					fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -52,7 +70,7 @@ func TestBucketAclCmd(t *testing.T) {
 				})
 				defer patches.Reset()
 				args := []string{"bucket-acl", "--method", "put",
-					testBucket, "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
+					fmt.Sprintf("cos://%s", testAlias), "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
