@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"coscli/util"
 	"fmt"
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"reflect"
 	"testing"
 )
 
@@ -26,18 +28,28 @@ func TestBucketPolicyCmd(t *testing.T) {
 		Convey("success", func() {
 			Convey("put", func() {
 				clearCmd()
+				var c *cos.BucketService
+				patches := ApplyMethodFunc(reflect.TypeOf(c), "PutPolicy", func(ctx context.Context, opt *cos.BucketPutPolicyOptions) (*cos.Response, error) {
+					return nil, nil
+				})
+				defer patches.Reset()
 				cmd := rootCmd
 				args := []string{"bucket-policy", "--method", "put",
-					testBucket, "--policy", "{\"Statement\":[{\"Principal\":{\"qcs\":[\"qcs::cam::uin/2832742109:uin/100032195968\",\"qcs::cam::uin/2832742109:uin/100032195968\"]},\"Effect\":\"allow\",\"Action\":[\"name/cos:GetBucket\"],\"Resource\":[\"qcs::cos:ap-nanjing:uid/1253960454:willppantest6-1253960454/*\"],\"condition\":{\"ip_equal\":{\"qcs:ip\":[\"10.9.189.79\"]}}}],\"version\":\"2.0\"}"}
+					fmt.Sprintf("cos://%s", testAlias), "--policy", "{\"Statement\":[{\"Principal\":{\"qcs\":[\"qcs::cam::uin/2832742109:uin/100032195968\",\"qcs::cam::uin/2832742109:uin/100032195968\"]},\"Effect\":\"allow\",\"Action\":[\"name/cos:GetBucket\"],\"Resource\":[\"qcs::cos:ap-nanjing:uid/1253960454:willppantest6-1253960454/*\"],\"condition\":{\"ip_equal\":{\"qcs:ip\":[\"10.9.189.79\"]}}}],\"version\":\"2.0\"}"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
 			Convey("get", func() {
 				clearCmd()
+				var c *cos.BucketService
+				patches := ApplyMethodFunc(reflect.TypeOf(c), "GetPolicy", func(ctx context.Context) (*cos.BucketGetPolicyResult, *cos.Response, error) {
+					return &cos.BucketGetPolicyResult{}, nil, nil
+				})
+				defer patches.Reset()
 				cmd := rootCmd
 				args := []string{"bucket-policy", "--method", "get",
-					testBucket}
+					fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -46,7 +58,7 @@ func TestBucketPolicyCmd(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-policy", "--method", "delete",
-					testBucket}
+					fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -61,7 +73,7 @@ func TestBucketPolicyCmd(t *testing.T) {
 				})
 				defer patches.Reset()
 				args := []string{"bucket-policy", "--method", "get",
-					testBucket}
+					fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)

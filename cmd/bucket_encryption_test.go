@@ -28,7 +28,7 @@ func TestBucketEncryptionCmd(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-encryption", "--method", "put",
-					testBucket, "--sse-algorithm", "AES256"}
+					fmt.Sprintf("cos://%s", testAlias), "--sse-algorithm", "AES256"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -37,7 +37,7 @@ func TestBucketEncryptionCmd(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-encryption", "--method", "get",
-					testBucket}
+					fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -46,7 +46,7 @@ func TestBucketEncryptionCmd(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-encryption", "--method", "delete",
-					testBucket}
+					fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -61,7 +61,7 @@ func TestBucketEncryptionCmd(t *testing.T) {
 				})
 				defer patches.Reset()
 				args := []string{"bucket-encryption", "--method", "get",
-					testBucket}
+					fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)

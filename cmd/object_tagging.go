@@ -42,13 +42,17 @@ Example:
 			return err
 		}
 
+		if bucketType == util.BucketTypeOfs {
+			return fmt.Errorf("ofs bucket not Implemented")
+		}
+
 		if method == "put" {
 			if len(args) < 2 {
 				return fmt.Errorf("not enough arguments in call to put object tagging")
 			}
 			err = util.PutObjectTagging(c, object, args[1:], versionId, bucketType)
 		} else if method == "add" {
-			if len(args) < 1 {
+			if len(args) < 2 {
 				return fmt.Errorf("not enough arguments in call to get object tagging")
 			}
 			err = util.AddObjectTagging(c, object, args[1:], versionId, bucketType)
