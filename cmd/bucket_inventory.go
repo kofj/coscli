@@ -15,11 +15,11 @@ Format:
 	./coscli inventory --method [method] cos://<bucket-name> 
 
 Example:
-	./coscli inventory --method put cos://examplebucket
-	./coscli inventory --method get cos://examplebucket
+	./coscli inventory --method put cos://examplebucket --task-id list4 --configuration "<?xml version=\"1.0\" encoding=\"UTF-8\"?><InventoryConfiguration xmlns=\"http://....\"><Id>list4</Id><IsEnabled>false</IsEnabled><Destination><COSBucketDestination><Format>CSV</Format><AccountId>100000000002</AccountId><Bucket>qcs::cos:ap-nanjing::test-1000000001</Bucket><Prefix>list4</Prefix><Encryption><SSE-COS></SSE-COS></Encryption></COSBucketDestination></Destination><Schedule><Frequency>Weekly</Frequency></Schedule><Filter><And><Prefix>myPrefix</Prefix><Tag><Key>age</Key><Value>18</Value></Tag></And><Period><StartTime>1768688761</StartTime><EndTime>1568688762</EndTime></Period></Filter><IncludedObjectVersions>All</IncludedObjectVersions><OptionalFields><Field>Size</Field><Field>Tag</Field><Field>LastModifiedDate</Field><Field>ETag</Field><Field>StorageClass</Field><Field>IsMultipartUploaded</Field></OptionalFields></InventoryConfiguration>" 
+	./coscli inventory --method get cos://examplebucket --task-id list4
 	./coscli inventory --method list cos://examplebucket
-	./coscli inventory --method delete cos://examplebucket
-	./coscli inventory --method post cos://examplebucket`,
+	./coscli inventory --method delete cos://examplebucket --task-id list4
+	./coscli inventory --method post cos://examplebucket --task-id list4 --configuration "<?xml version=\"1.0\" encoding=\"UTF-8\"?><InventoryConfiguration xmlns=\"http://....\"><Id>list4</Id><Destination><COSBucketDestination><Format>CSV</Format><AccountId>100000000002</AccountId><Bucket>qcs::cos:ap-nanjing::test-100000001</Bucket><Prefix>list4</Prefix><Encryption><SSE-COS>111</SSE-COS></Encryption></COSBucketDestination></Destination><Filter><And><Prefix>myPrefix</Prefix><Tag><Key>age</Key><Value>18</Value></Tag></And><Period><StartTime>1768688761</StartTime><EndTime>1568688762</EndTime></Period></Filter><IncludedObjectVersions>All</IncludedObjectVersions><OptionalFields><Field>Size</Field><Field>Tag</Field><Field>LastModifiedDate</Field><Field>ETag</Field><Field>StorageClass</Field><Field>IsMultipartUploaded</Field></OptionalFields></InventoryConfiguration>"`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		method, _ := cmd.Flags().GetString("method")

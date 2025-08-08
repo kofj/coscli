@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/olekukonko/tablewriter"
+	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
 	"strings"
@@ -21,6 +22,10 @@ func PutBucketInventory(c *cos.Client, id, configuration string) error {
 		return err
 	}
 	_, err = c.Bucket.PutInventory(context.Background(), id, &opt)
+	if err != nil {
+		return err
+	}
+	logger.Info("PutInventory success")
 	return err
 }
 
@@ -35,6 +40,10 @@ func GetBucketInventory(c *cos.Client, id string) error {
 
 func DeleteBucketInventory(c *cos.Client, id string) error {
 	_, err := c.Bucket.DeleteInventory(context.Background(), id)
+	if err != nil {
+		return err
+	}
+	logger.Info("DeleteInventory success")
 	return err
 }
 
@@ -49,6 +58,10 @@ func PostBucketInventory(c *cos.Client, id, configuration string) error {
 		return err
 	}
 	_, err = c.Bucket.PostInventory(context.Background(), id, &opt)
+	if err != nil {
+		return err
+	}
+	logger.Info("PostInventory success")
 	return err
 }
 

@@ -61,7 +61,7 @@ func readFile(filePath string) ([]byte, error) {
 		return nil, fmt.Errorf("file contains no data: %s", absPath)
 	}
 
-	logger.Info("Loaded configuration from file: %s (%d bytes)", absPath, len(content))
+	logger.Info(fmt.Sprintf("Loaded configuration from file: %s (%d bytes)", absPath, len(content)))
 	return content, nil
 }
 

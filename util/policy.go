@@ -2,26 +2,30 @@ package util
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/olekukonko/tablewriter"
+	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"os"
 	"strings"
 )
 
 func PutBucketPolicy(c *cos.Client, policy string) error {
-	var err error
-	var opt *cos.BucketPutPolicyOptions
-	if err := json.Unmarshal([]byte(policy), &opt); err != nil {
-		return fmt.Errorf("invalid policy JSON: %w", err)
+	configurationContent, err := GetContent(policy)
+	if err != nil {
+		return err
 	}
-	_, err = c.Bucket.PutPolicy(context.Background(), opt)
+	var opt cos.BucketPutPolicyOptions
+	err = ParseContent(configurationContent, &opt)
+	if err != nil {
+		return err
+	}
+	_, err = c.Bucket.PutPolicy(context.Background(), &opt)
 
 	if err != nil {
 		return err
 	}
-
+	logger.Info("Put Bucket Policy Success")
 	return nil
 }
 
@@ -40,6 +44,10 @@ func GetBucketPolicy(c *cos.Client) error {
 
 func DeleteBucketPolicy(c *cos.Client) error {
 	_, err := c.Bucket.DeletePolicy(context.Background())
+	if err != nil {
+		return err
+	}
+	logger.Info("Delete Bucket Policy Success")
 	return err
 }
 
