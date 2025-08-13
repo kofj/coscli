@@ -65,6 +65,28 @@ func TestBucketAclCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("cos path error", func() {
+				clearCmd()
+				cmd := rootCmd
+
+				args := []string{"bucket-acl", "--method", "put",
+					fmt.Sprintf("cos:/%s", testAlias), "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("invalid method", func() {
+				clearCmd()
+				cmd := rootCmd
+
+				args := []string{"bucket-acl", "--method", "add",
+					fmt.Sprintf("cos://%s", testAlias), "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
 		})
 	})
 }

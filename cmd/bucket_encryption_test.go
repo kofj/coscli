@@ -67,6 +67,28 @@ func TestBucketEncryptionCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("cos path error", func() {
+				clearCmd()
+				cmd := rootCmd
+
+				args := []string{"bucket-encryption", "--method", "get",
+					fmt.Sprintf("cos:/%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("invalid method", func() {
+				clearCmd()
+				cmd := rootCmd
+
+				args := []string{"bucket-encryption", "--method", "add",
+					fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
 		})
 	})
 }

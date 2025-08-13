@@ -130,6 +130,12 @@ Example:
 			return fmt.Errorf("not support cp between local directory")
 		}
 
+		// 解析tags
+		tags, err = util.EncodeTagging(tags)
+		if err != nil {
+			return err
+		}
+
 		_, filters := util.GetFilter(include, exclude)
 
 		if delete && !recursive {

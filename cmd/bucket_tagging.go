@@ -26,6 +26,9 @@ Example:
 
 		var err error
 		cosPath := args[0]
+		if !util.IsCosPath(cosPath) {
+			return fmt.Errorf("cospath needs to contain cos://")
+		}
 
 		bucketName, _ := util.ParsePath(cosPath)
 		c, err := util.NewClient(&config, &param, bucketName)
@@ -39,19 +42,11 @@ Example:
 			}
 			err = util.PutBucketTagging(c, args[1:])
 		} else if method == "add" {
-			if len(args) < 1 {
-				return fmt.Errorf("not enough arguments in call to get bucket tagging")
-			}
 			err = util.AddBucketTagging(c, args[1:])
 		} else if method == "get" {
-			if len(args) < 1 {
-				return fmt.Errorf("not enough arguments in call to get bucket tagging")
-			}
 			err = util.GetBucketTagging(c)
 		} else if method == "delete" {
-			if len(args) < 1 {
-				return fmt.Errorf("not enough arguments in call to delete bucket tagging")
-			} else if len(args) == 1 {
+			if len(args) == 1 {
 				err = util.DeleteBucketTagging(c)
 			} else {
 				err = util.DeleteDesBucketTagging(c, args[1:])

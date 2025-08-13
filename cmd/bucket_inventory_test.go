@@ -113,6 +113,41 @@ func TestBucketInventoryCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("FormatUrl err", func() {
+				clearCmd()
+				cmd := rootCmd
+				patches := ApplyFunc(util.FormatUrl, func(urlStr string) (util.StorageUrl, error) {
+					return nil, fmt.Errorf("test format url error")
+				})
+				defer patches.Reset()
+				args := []string{"inventory", "--method", "list",
+					fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("cos path error", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"inventory", "--method", "list",
+					fmt.Sprintf("cos:/%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("invalid method", func() {
+				clearCmd()
+				cmd := rootCmd
+
+				args := []string{"inventory", "--method", "add",
+					fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
 		})
 	})
 }

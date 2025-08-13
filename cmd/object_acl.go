@@ -46,6 +46,10 @@ Example:
 			return err
 		}
 
+		if bucketType == util.BucketTypeOfs {
+			return fmt.Errorf("ofs not support object-acl")
+		}
+
 		if method == "put" {
 			err = util.PutObjectAcl(c, object, versionId, bucketType, aclSettings)
 		} else if method == "get" {

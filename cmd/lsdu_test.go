@@ -91,6 +91,19 @@ func TestLsduCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("get bucket type error", func() {
+				patches := ApplyFunc(util.GetBucketType, func(c *cos.Client, param *util.Param, config *util.Config, bucketName string) (string, error) {
+					return "", fmt.Errorf("get bucket type error")
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args = []string{"lsdu", fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+
 		})
 	})
 }

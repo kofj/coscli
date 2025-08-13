@@ -139,6 +139,26 @@ func TestCpCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
+			Convey("SSE-COS加密", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"cp", localFileName, cosFileName, "-r", "--encryption-type", "SSE-COS"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("SSE-C加密", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"cp", localFileName, cosFileName, "-r", "--encryption-type", "SSE-C"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
 		})
 		Convey("Copy", func() {
 			Convey("桶内拷贝单个文件", func() {
@@ -245,6 +265,56 @@ func TestCpCmd(t *testing.T) {
 			})
 		})
 		Convey("fail", func() {
+			Convey("encryptionType非法", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"cp", localFileName, cosFileName, "-r", "--encryption-type", "SSE-C123"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("retry-num > 100", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"cp", localFileName, cosFileName, "-r", "--retry-num", "1000"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("err-retry-num > 100", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"cp", localFileName, cosFileName, "-r", "--err-retry-num", "1000"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("move only supports cp between cos paths", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"cp", localFileName, cosFileName, "-r", "--move"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("encode tag error", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"cp", localFileName, cosFileName, "-r", "--tag", "tag1"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
 			Convey("Not enough argument", func() {
 				clearCmd()
 				cmd := rootCmd
@@ -459,6 +529,31 @@ func TestCpCmd(t *testing.T) {
 					fmt.Printf(" : %v", e)
 					So(e, ShouldBeError)
 				})
+				Convey("get bucket version error", func() {
+					clearCmd()
+					cmd := rootCmd
+
+					patches := ApplyFunc(util.GetBucketVersioning, func(c *cos.Client) (res *cos.BucketGetVersionResult, resp *cos.Response, err error) {
+						return nil, nil, fmt.Errorf("get bucket version error")
+					})
+					defer patches.Reset()
+					localFileName := fmt.Sprintf("%s/download/single-small", testDir)
+					cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-small")
+					args := []string{"cp", cosFileName, localFileName, "--version-id", "123"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeError)
+				})
+				Convey("versioning is not enabled", func() {
+					clearCmd()
+					cmd := rootCmd
+					localFileName := fmt.Sprintf("%s/download/single-small", testDir)
+					cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "single-copy-small")
+					args := []string{"cp", cosFileName, localFileName, "--version-id", "123"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeError)
+				})
 			})
 			Convey("CosCopy", func() {
 				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
@@ -522,6 +617,30 @@ func TestCpCmd(t *testing.T) {
 					defer patches.Reset()
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("get bucket version error", func() {
+					clearCmd()
+					cmd := rootCmd
+					patches := ApplyFunc(util.GetBucketVersioning, func(c *cos.Client) (res *cos.BucketGetVersionResult, resp *cos.Response, err error) {
+						return nil, nil, fmt.Errorf("get bucket version error")
+					})
+					defer patches.Reset()
+					srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
+					dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
+					args := []string{"cp", srcPath, dstPath, "--version-id", "123"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeError)
+				})
+				Convey("versioning is not enabled", func() {
+					clearCmd()
+					cmd := rootCmd
+					srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-big")
+					dstPath := fmt.Sprintf("cos://%s/%s", testAlias1, "single-copy")
+					args := []string{"cp", srcPath, dstPath, "--version-id", "123"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
 					So(e, ShouldBeError)
 				})
 			})

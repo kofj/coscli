@@ -56,11 +56,13 @@ func PutObjectAcl(c *cos.Client, object, versionId, bucketType string, aclSettin
 			XCosGrantFullControl: aclSettings.GrantFullControl,
 		},
 	}
-	if bucketType == BucketTypeOfs {
-		_, err = c.Object.PutACL(context.Background(), object, opt)
-	} else {
-		_, err = c.Object.PutACL(context.Background(), object, opt, versionId)
-	}
+	//if bucketType == BucketTypeOfs {
+	//	_, err = c.Object.PutACL(context.Background(), object, opt)
+	//} else {
+	//	_, err = c.Object.PutACL(context.Background(), object, opt, versionId)
+	//}
+
+	_, err = c.Object.PutACL(context.Background(), object, opt, versionId)
 
 	if err != nil {
 		return err
@@ -72,11 +74,12 @@ func PutObjectAcl(c *cos.Client, object, versionId, bucketType string, aclSettin
 func GetObjectAcl(c *cos.Client, object, versionId, bucketType string) error {
 	var err error
 	var acl *cos.ObjectGetACLResult
-	if bucketType == BucketTypeOfs {
-		acl, _, err = c.Object.GetACL(context.Background(), object)
-	} else {
-		acl, _, err = c.Object.GetACL(context.Background(), object, versionId)
-	}
+	//if bucketType == BucketTypeOfs {
+	//	acl, _, err = c.Object.GetACL(context.Background(), object)
+	//} else {
+	//	acl, _, err = c.Object.GetACL(context.Background(), object, versionId)
+	//}
+	acl, _, err = c.Object.GetACL(context.Background(), object, versionId)
 
 	if err != nil {
 		return err

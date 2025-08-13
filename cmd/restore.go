@@ -67,8 +67,9 @@ Example:
 		}
 
 		if recursive {
+			var bucketType string
 			// 获取桶类型
-			bucketType, err := util.GetBucketType(c, fo.Param, fo.Config, bucketName)
+			bucketType, err = util.GetBucketType(c, fo.Param, fo.Config, bucketName)
 			if err != nil {
 				return err
 			}

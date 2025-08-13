@@ -113,6 +113,15 @@ func TestMbCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("encode tag error", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"mb",
+					fmt.Sprintf("cos://%s-%s", testBucket, appID), "-e", testEndpoint, "--tag", "tag1"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
 		})
 	})
 }

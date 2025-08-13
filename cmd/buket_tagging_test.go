@@ -52,20 +52,20 @@ func TestBucketTaggingCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
-			Convey("delete", func() {
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"bucket-tagging", "--method", "delete",
-					fmt.Sprintf("cos://%s", testAlias)}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				So(e, ShouldBeNil)
-			})
 			Convey("deleteDes", func() {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-tagging", "--method", "delete",
 					fmt.Sprintf("cos://%s", testAlias), "testkey2#testval2"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("delete", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"bucket-tagging", "--method", "delete",
+					fmt.Sprintf("cos://%s", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -268,6 +268,27 @@ func TestBucketTaggingCmd(t *testing.T) {
 					e := cmd.Execute()
 					So(e, ShouldBeError)
 				})
+			})
+			Convey("cos path error", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"bucket-tagging", "--method", "get",
+					fmt.Sprintf("cos:/%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("invalid method", func() {
+				clearCmd()
+				cmd := rootCmd
+
+				args := []string{"bucket-tagging", "--method", "post",
+					fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
 			})
 		})
 	})

@@ -14,6 +14,8 @@ func TestObjectAclCmd(t *testing.T) {
 	fmt.Println("TestObjectAclCmd")
 	testBucket = randStr(8)
 	testAlias = testBucket + "-alias"
+	testOfsBucket = testBucket + "-ofs"
+	testOfsBucketAlias = testAlias + "-ofs"
 	setUp(testBucket, testAlias, testEndpoint, false, false)
 	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	setUp(testOfsBucket, testOfsBucketAlias, testEndpoint, true, false)
@@ -24,15 +26,15 @@ func TestObjectAclCmd(t *testing.T) {
 	cmd.SilenceUsage = true
 	genDir(testDir, 3)
 	defer delDir(testDir)
-	localFileName := fmt.Sprintf("%s/small-file", testDir)
+	localFileName := fmt.Sprintf("%s/small-file/0", testDir)
 	// 上传cos文件
-	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
+	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "small-file")
 	args := []string{"cp", localFileName, cosFileName, "-r"}
 	cmd.SetArgs(args)
 	cmd.Execute()
 
 	// 上传ofs文件
-	ofsFileName := fmt.Sprintf("cos://%s/%s", testOfsBucketAlias, "multi-small")
+	ofsFileName := fmt.Sprintf("cos://%s/%s", testOfsBucketAlias, "small-file")
 	args = []string{"cp", localFileName, ofsFileName, "-r"}
 	cmd.SetArgs(args)
 	cmd.Execute()
@@ -58,28 +60,30 @@ func TestObjectAclCmd(t *testing.T) {
 					So(e, ShouldBeNil)
 				})
 			})
-			Convey("ofs", func() {
-				Convey("put", func() {
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-acl", "--method", "put",
-						ofsFileName, "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					So(e, ShouldBeNil)
-				})
-				Convey("get", func() {
-					time.Sleep(time.Second)
-					clearCmd()
-					cmd := rootCmd
-					args := []string{"object-acl", "--method", "get",
-						ofsFileName}
-					cmd.SetArgs(args)
-					e := cmd.Execute()
-					So(e, ShouldBeNil)
-				})
-			})
 			Convey("fail", func() {
+				Convey("ofs", func() {
+					Convey("put", func() {
+						clearCmd()
+						cmd := rootCmd
+						args := []string{"object-acl", "--method", "put",
+							ofsFileName, "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
+						cmd.SetArgs(args)
+						e := cmd.Execute()
+						fmt.Printf(" : %v", e)
+						So(e, ShouldBeError)
+					})
+					Convey("get", func() {
+						time.Sleep(time.Second)
+						clearCmd()
+						cmd := rootCmd
+						args := []string{"object-acl", "--method", "get",
+							ofsFileName}
+						cmd.SetArgs(args)
+						e := cmd.Execute()
+						fmt.Printf(" : %v", e)
+						So(e, ShouldBeError)
+					})
+				})
 				Convey("clinet err", func() {
 					clearCmd()
 					cmd := rootCmd
@@ -92,6 +96,19 @@ func TestObjectAclCmd(t *testing.T) {
 					cmd.SetArgs(args)
 					e := cmd.Execute()
 					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("get bucket type error", func() {
+					patches := ApplyFunc(util.GetBucketType, func(c *cos.Client, param *util.Param, config *util.Config, bucketName string) (string, error) {
+						return "", fmt.Errorf("get bucket type error")
+					})
+					defer patches.Reset()
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"object-acl", "--method", "get",
+						cosFileName, "--grant-read", "id=\"100000000003\",id=\"100000000002\""}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
 					So(e, ShouldBeError)
 				})
 			})

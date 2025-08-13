@@ -79,6 +79,37 @@ func TestBucketPolicyCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("no policy provided", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"bucket-policy", "--method", "put",
+					fmt.Sprintf("cos:/%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("cos path error", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"bucket-policy", "--method", "get",
+					fmt.Sprintf("cos:/%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("invalid method", func() {
+				clearCmd()
+				cmd := rootCmd
+
+				args := []string{"bucket-policy", "--method", "add",
+					fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
 		})
 	})
 }
