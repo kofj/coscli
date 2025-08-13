@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -66,7 +65,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 		freshProgress()
 
 		// 下载文件
-		skip, err, isDir, size, _, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl, fo.Operation.VersionId)
+		skip, err, isDir, size, _, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified"), false}, cosUrl, fileUrl, fo.Operation.VersionId)
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
 			return fmt.Errorf("%s failed: %v", msg, err)
@@ -140,7 +139,6 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 
 	close(chLog)
 	wgLogger.Wait()
-	logger.Info("logger record completed")
 }
 
 func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error, chLog chan<- string) {
@@ -156,15 +154,19 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 			skip, err, isDir, size, transferSize, msg = singleDownload(c, fo, object, cosUrl, fileUrl)
 			endT := time.Now().UnixNano() / 1000 / 1000
 			costTime := int(endT - startT)
+			skipMsg := ""
+			if skip {
+				skipMsg = "(skip)"
+			}
 			if retry == 0 {
 				if err == nil {
-					processMsg += fmt.Sprintf("[%s] %s successed,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, costTime)
+					processMsg += fmt.Sprintf("[%s] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, skipMsg, costTime)
 				} else {
 					processMsg += fmt.Sprintf("[%s] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, err, costTime)
 				}
 			} else {
 				if err == nil {
-					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, costTime)
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, skipMsg, costTime)
 				} else {
 					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err, costTime)
 				}
@@ -207,10 +209,21 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	localFilePath := DownloadPathFixed(objectInfo.relativeKey, fileUrl.ToString())
 	msg = fmt.Sprintf("Download %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
 
-	// 是文件夹则直接创建并退出
+	// 标记文件夹
 	if size == 0 && strings.HasSuffix(object, "/") {
-		rErr = os.MkdirAll(localFilePath, 0755)
 		isDir = true
+	}
+
+	// 标记跳过的对象直接跳过
+	if objectInfo.skip {
+		size = objectInfo.size
+		skip = true
+		return
+	}
+
+	// 是文件夹则直接创建并退出
+	if isDir {
+		rErr = os.MkdirAll(localFilePath, 0755)
 		return
 	}
 
@@ -220,11 +233,15 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		// 文件存在再判断是否需要跳过
 		// 仅sync命令执行skip
 		if fo.Command == CommandSync {
-			absLocalFilePath, _ := filepath.Abs(localFilePath)
-			snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
-			skip, err = skipDownload(snapshotKey, c, fo, localFilePath, objectInfo.lastModified, object)
-			if err != nil {
-				rErr = err
+			if fo.Operation.IgnoreExisting {
+				skip = true
+			} else {
+				absLocalFilePath, _ := filepath.Abs(localFilePath)
+				snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
+				skip, err = skipDownload(snapshotKey, c, fo, localFilePath, objectInfo.lastModified, object)
+				if err != nil {
+					rErr = err
+				}
 			}
 
 			if skip {
@@ -319,4 +336,71 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	}
 
 	return
+}
+
+func DownloadWithDelete(c *cos.Client, srcKeys, downloadKeys map[string]commonInfoType, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) error {
+	startT := time.Now().UnixNano() / 1000 / 1000
+
+	fo.Monitor.init(fo.CpType)
+	chProgressSignal = make(chan chProgressSignalType, 10)
+	go progressBar(fo)
+
+	// 多对象下载
+	batchDownloadFilesWithDelete(c, srcKeys, downloadKeys, cosUrl, fileUrl, fo)
+
+	closeProgress()
+	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
+
+	return nil
+}
+
+func batchDownloadFilesWithDelete(c *cos.Client, srcKeys, downloadKeys map[string]commonInfoType, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
+	chObjects := make(chan objectInfoType, ChannelSize)
+	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
+	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
+	// 生成下载key
+	go getObjectListByKeys(srcKeys, downloadKeys, chObjects, chListError, fo)
+
+	for i := 0; i < fo.Operation.Routines; i++ {
+		go downloadFiles(c, cosUrl, fileUrl, fo, chObjects, chError, chLog)
+	}
+
+	completed := 0
+	for completed <= fo.Operation.Routines {
+		select {
+		case err := <-chListError:
+			if err != nil {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+			completed++
+		case err := <-chError:
+			if err == nil {
+				completed++
+			} else {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+		}
+	}
+
+	close(chLog)
+	wgLogger.Wait()
 }

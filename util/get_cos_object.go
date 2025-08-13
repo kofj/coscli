@@ -3,9 +3,13 @@ package util
 import (
 	"context"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/url"
+	"runtime"
 	"strings"
+	"sync"
+	"time"
 )
 
 // GetCosKeys reads keys from a COS (Cloud Object Storage) URL and processes them.
@@ -16,11 +20,11 @@ import (
 // fo: *FileOperations - the file operations object
 //
 // Returns an error if any of the operations fail.
-func GetCosKeys(c *cos.Client, cosUrl StorageUrl, keys map[string]string, fo *FileOperations) error {
+func GetCosKeys(c *cos.Client, cosUrl StorageUrl, keys map[string]commonInfoType, fo *FileOperations, TypeDest string) error {
 
 	chFiles := make(chan objectInfoType, ChannelSize)
 	chFinish := make(chan error, 2)
-	go ReadCosKeys(keys, cosUrl, chFiles, chFinish)
+	go ReadCosKeys(keys, cosUrl, chFiles, chFinish, fo, TypeDest)
 	go getCosObjectList(c, cosUrl, chFiles, chFinish, fo, false, false)
 	select {
 	case err := <-chFinish:
@@ -38,21 +42,111 @@ func GetCosKeys(c *cos.Client, cosUrl StorageUrl, keys map[string]string, fo *Fi
 // cosUrl: The URL of the COS bucket.
 // chObjects: A channel to receive object info types.
 // chFinish: A channel to send errors if the number of keys exceeds the maximum allowed.
-func ReadCosKeys(keys map[string]string, cosUrl StorageUrl, chObjects <-chan objectInfoType, chFinish chan<- error) {
-	totalCount := 0
-	fmt.Printf("\n")
-	for objectInfo := range chObjects {
-		totalCount++
-		keys[objectInfo.relativeKey] = objectInfo.prefix
-		if len(keys) > MaxSyncNumbers {
-			fmt.Printf("\n")
-			chFinish <- fmt.Errorf("over max sync numbers %d", MaxSyncNumbers)
-			break
-		}
+func ReadCosKeys(keys map[string]commonInfoType, cosUrl StorageUrl, chObjects <-chan objectInfoType, chFinish chan<- error, fo *FileOperations, objType string) {
+
+	// 2. 创建通道
+	results := make(chan commonInfoType, ChannelSize) // 缓冲通道提高性能
+	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// 3. 启动工作池
+	var wg sync.WaitGroup
+	for i := 0; i < runtime.NumCPU()*2; i++ { // 根据CPU核心数动态调整
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for objectInfo := range chObjects {
+				// 解析时间字符串
+				var lastModifiedTime time.Time
+				var lastModifiedTimeUnix int64
+				var err error
+				if objectInfo.lastModified == "" {
+					lastModifiedTimeUnix = int64(0)
+				} else {
+					lastModifiedTime, err = time.Parse(time.RFC3339, objectInfo.lastModified)
+					if err != nil {
+						lastModifiedTime, err = time.Parse(time.RFC1123, objectInfo.lastModified)
+						if err != nil {
+							chFinish <- err
+						}
+					}
+					lastModifiedTimeUnix = lastModifiedTime.Unix()
+				}
+
+				select {
+				case results <- commonInfoType{
+					key:              objectInfo.relativeKey,
+					dir:              objectInfo.prefix,
+					size:             objectInfo.size,
+					lastModifiedUnix: lastModifiedTimeUnix,
+					lastModified:     objectInfo.lastModified,
+				}:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
 	}
 
-	fmt.Printf("\r%s,total cos object count:%d", cosUrl.ToString(), totalCount)
-	chFinish <- nil
+	// 4. 启动结果收集器
+	go func() {
+		defer close(done)
+		totalCount := 0
+		lastReport := time.Now()
+		batchSize := 1000 // 批量处理大小
+		batch := make([]commonInfoType, 0, batchSize)
+
+		for res := range results {
+			totalCount++
+			batch = append(batch, res)
+
+			// 批量处理
+			if len(batch) >= batchSize || time.Since(lastReport) > 100*time.Millisecond {
+				for _, item := range batch {
+					keys[item.key] = item
+				}
+				batch = batch[:0] // 重置批次
+
+				if objType == TypeSrc {
+					fo.SyncDeleteObjectInfo.srcCount = totalCount
+				} else {
+					fo.SyncDeleteObjectInfo.destCount = totalCount
+				}
+
+				lastReport = time.Now()
+
+				// 检查数量限制
+				if len(keys) > MaxSyncNumbers {
+					cancel() // 取消所有工作
+					fmt.Printf("\n")
+					chFinish <- fmt.Errorf("over max sync numbers %d", MaxSyncNumbers)
+					return
+				}
+			}
+		}
+
+		// 处理剩余批次
+		for _, item := range batch {
+			keys[item.key] = item
+		}
+
+		if objType == TypeSrc {
+			fo.SyncDeleteObjectInfo.srcCount = totalCount
+		} else {
+			fo.SyncDeleteObjectInfo.destCount = totalCount
+		}
+		chFinish <- nil
+	}()
+
+	// 5. 等待所有工作完成
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// 6. 等待结果收集完成
+	<-done
 }
 
 // CheckCosPathType checks if the given path is a directory or not.
@@ -163,6 +257,12 @@ func CheckDeleteMarkerExist(c *cos.Client, cosUrl StorageUrl, versionId string) 
 }
 
 func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectInfoType, chError chan<- error, fo *FileOperations, scanSizeNum bool, withFinishSignal bool) {
+	startTime := time.Now().UnixNano() / 1000 / 1000
+	defer func() {
+		endTime := time.Now().UnixNano() / 1000 / 1000
+		costTime := int(endTime - startTime)
+		logger.Info(fmt.Sprintf("get cos list cost %dms", costTime/1000))
+	}()
 	if chObjects != nil {
 		defer close(chObjects)
 	}
@@ -209,7 +309,7 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 						objPrefix = object.Key[:index+1]
 						objKey = object.Key[index+1:]
 					}
-					chObjects <- objectInfoType{objPrefix, objKey, int64(object.Size), object.LastModified}
+					chObjects <- objectInfoType{prefix: objPrefix, relativeKey: objKey, size: object.Size, lastModified: object.LastModified}
 				}
 			}
 		}
@@ -226,6 +326,38 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 	if withFinishSignal {
 		chError <- nil
 	}
+}
+
+func getObjectListByKeys(srcKeys, transferKeys map[string]commonInfoType, chObjects chan<- objectInfoType, chListError chan<- error, fo *FileOperations) {
+	defer close(chObjects)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for _, v := range srcKeys {
+			fo.Monitor.updateScanSizeNum(v.size, 1)
+		}
+		fo.Monitor.setScanEnd()
+		freshProgress()
+	}()
+
+	go func() {
+		defer wg.Done()
+		for k, v := range srcKeys {
+			if _, exists := transferKeys[k]; exists {
+				chObjects <- objectInfoType{v.dir, v.key, v.size, v.lastModified, false}
+			} else {
+				chObjects <- objectInfoType{v.dir, v.key, v.size, v.lastModified, true}
+			}
+		}
+		// 发送完成信号
+		chListError <- nil
+	}()
+
+	// 等待两个任务完成
+	wg.Wait()
 }
 
 func getCosObjectListForLs(c *cos.Client, cosUrl StorageUrl, marker string, limit int, recursive bool) (err error, objects []cos.Object, commonPrefixes []string, isTruncated bool, nextMarker string) {

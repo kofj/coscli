@@ -54,10 +54,24 @@ type UploadInfo struct {
 	Initiated string `xml:"Initiated,omitempty"`
 }
 
+// commonInfoType
+type commonInfoType struct {
+	key              string
+	dir              string
+	size             int64
+	lastModifiedUnix int64
+	lastModified     string
+	isDir            bool
+}
+
 // fileInfoType 文件信息
 type fileInfoType struct {
-	filePath string
-	dir      string
+	filePath     string
+	dir          string
+	size         int64
+	lastModified int64
+	isDir        bool
+	skip         bool
 }
 
 // objectInfoType cos对象信息
@@ -66,24 +80,26 @@ type objectInfoType struct {
 	relativeKey  string
 	size         int64
 	lastModified string
+	skip         bool
 }
 
 type CpType int
 
 // FileOperations 文件操作配置
 type FileOperations struct {
-	Operation     Operation
-	Monitor       *FileProcessMonitor
-	ErrOutput     *ErrOutput
-	ProcessLogger *ProcessLogger
-	Config        *Config
-	Param         *Param
-	SnapshotDb    *leveldb.DB
-	CpType        CpType
-	Command       string
-	DeleteCount   int
-	BucketType    string
-	OutPutDirName string
+	Operation            Operation
+	Monitor              *FileProcessMonitor
+	ErrOutput            *ErrOutput
+	ProcessLogger        *ProcessLogger
+	Config               *Config
+	Param                *Param
+	SnapshotDb           *leveldb.DB
+	CpType               CpType
+	Command              string
+	DeleteCount          int
+	SyncDeleteObjectInfo SyncDeleteObjectInfo
+	BucketType           string
+	OutPutDirName        string
 }
 
 // Operation 文件操作参数
@@ -121,6 +137,7 @@ type Operation struct {
 	Move                 bool
 	SkipDir              bool
 	Update               bool
+	IgnoreExisting       bool
 	Acl                  string
 	GrantRead            string
 	GrantWrite           string
@@ -175,6 +192,10 @@ type LsCounter struct {
 	Table      *tablewriter.Table
 }
 
+type SyncDeleteObjectInfo struct {
+	srcCount  int
+	destCount int
+}
 type ACLSettings struct {
 	ACL              string
 	GrantRead        string

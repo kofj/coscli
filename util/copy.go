@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
 	"net/http"
@@ -43,7 +42,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 		}
 
 		// copy文件
-		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, srcUrl, destUrl, fo.Operation.VersionId)
+		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified"), false}, srcUrl, destUrl, fo.Operation.VersionId)
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
@@ -56,6 +55,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 	}
 
 	CloseErrorOutputFile(fo)
+	CloseProcessLoggerFile(fo)
 	closeProgress()
 	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
 
@@ -120,7 +120,6 @@ func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUr
 
 	close(chLog)
 	wgLogger.Wait()
-	logger.Info("logger record completed")
 }
 
 func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error, chLog chan<- string) {
@@ -136,15 +135,19 @@ func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo
 			skip, err, isDir, size, msg = singleCopy(srcClient, destClient, fo, object, srcUrl, destUrl)
 			endT := time.Now().UnixNano() / 1000 / 1000
 			costTime := int(endT - startT)
+			skipMsg := ""
+			if skip {
+				skipMsg = "(skip)"
+			}
 			if retry == 0 {
 				if err == nil {
-					processMsg += fmt.Sprintf("[%s] %s successed,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, costTime)
+					processMsg += fmt.Sprintf("[%s] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, skipMsg, costTime)
 				} else {
 					processMsg += fmt.Sprintf("[%s] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, err, costTime)
 				}
 			} else {
 				if err == nil {
-					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, costTime)
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, skipMsg, costTime)
 				} else {
 					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err, costTime)
 				}
@@ -185,9 +188,16 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	msg = fmt.Sprintf("Copy %s to %s", getCosUrl(srcUrl.(*CosUrl).Bucket, object), getCosUrl(destUrl.(*CosUrl).Bucket, destPath))
 
 	var err error
-	// 是文件夹则直接创建并退出
+	// 标记文件夹
 	if size == 0 && strings.HasSuffix(object, "/") {
 		isDir = true
+	}
+
+	// 标记跳过的对象直接跳过
+	if objectInfo.skip {
+		size = objectInfo.size
+		skip = true
+		return
 	}
 
 	// 仅sync命令执行skip
@@ -281,4 +291,73 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	}
 
 	return
+}
+
+func CosCopyWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[string]commonInfoType, srcUrl, destUrl StorageUrl, fo *FileOperations) error {
+	startT := time.Now().UnixNano() / 1000 / 1000
+
+	fo.Monitor.init(fo.CpType)
+	chProgressSignal = make(chan chProgressSignalType, 10)
+	go progressBar(fo)
+
+	// 多对象copy
+	batchCopyFilesWithDelete(srcClient, destClient, srcKeys, copyKeys, srcUrl, destUrl, fo)
+
+	CloseErrorOutputFile(fo)
+	CloseProcessLoggerFile(fo)
+	closeProgress()
+	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
+
+	return nil
+}
+
+func batchCopyFilesWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[string]commonInfoType, srcUrl, destUrl StorageUrl, fo *FileOperations) {
+	chObjects := make(chan objectInfoType, ChannelSize)
+	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
+	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
+	// 根据获取的列表统计对象大小数量并生成copy对象列表
+	go getObjectListByKeys(srcKeys, copyKeys, chObjects, chListError, fo)
+
+	for i := 0; i < fo.Operation.Routines; i++ {
+		go copyFiles(srcClient, destClient, srcUrl, destUrl, fo, chObjects, chError, chLog)
+	}
+
+	completed := 0
+	for completed <= fo.Operation.Routines {
+		select {
+		case err := <-chListError:
+			if err != nil {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+			completed++
+		case err := <-chError:
+			if err == nil {
+				completed++
+			} else {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+		}
+	}
+
+	close(chLog)
+	wgLogger.Wait()
 }

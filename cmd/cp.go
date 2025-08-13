@@ -331,6 +331,7 @@ Example:
 			return fmt.Errorf("cospath needs to contain %s", util.SchemePrefix)
 		}
 		util.CloseErrorOutputFile(fo)
+		util.CloseProcessLoggerFile(fo)
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
 

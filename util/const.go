@@ -35,8 +35,8 @@ const (
 	CosSeparator        string = "/"
 	IncludePrompt              = "--include"
 	ExcludePrompt              = "--exclude"
-	ChannelSize         int    = 1000
-	MaxSyncNumbers             = 1000000
+	ChannelSize         int    = 100000
+	MaxSyncNumbers             = 5000000
 	MaxDeleteBatchCount int    = 1000
 	SnapshotConnector          = "==>"
 	OfsMaxRenderNum     int    = 100
@@ -62,4 +62,9 @@ const (
 const (
 	BucketTypeCos = "COS"
 	BucketTypeOfs = "OFS"
+)
+
+const (
+	TypeSrc  = "src"
+	TypeDest = "dest"
 )

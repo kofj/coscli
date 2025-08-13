@@ -1,12 +1,15 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"time"
 )
 
 var once sync.Once
@@ -159,7 +162,7 @@ func generateFileList(localPath string, chFiles chan<- fileInfoType, chListError
 		}
 	} else {
 		dir, fname := filepath.Split(localPath)
-		chFiles <- fileInfoType{fname, dir}
+		chFiles <- fileInfoType{filePath: fname, dir: dir, size: f.Size(), isDir: f.IsDir()}
 	}
 	chListError <- nil
 }
@@ -176,9 +179,9 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 			return err
 		}
 
+		realFileSize := f.Size()
 		dpath = filepath.Clean(dpath)
 		fpath = filepath.Clean(fpath)
-
 		fileName, err := filepath.Rel(dpath, fpath)
 		if err != nil {
 			return fmt.Errorf("list file error: %s, info: %s", fpath, err.Error())
@@ -188,9 +191,9 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 			if fpath != dpath {
 				if matchPatterns(filepath.Join(dpath, fileName), fo.Operation.Filters) {
 					if strings.HasSuffix(fileName, "\\") || strings.HasSuffix(fileName, "/") {
-						chFiles <- fileInfoType{fileName, name}
+						chFiles <- fileInfoType{filePath: fileName, dir: name, size: 0, lastModified: f.ModTime().Unix(), isDir: f.IsDir()}
 					} else {
-						chFiles <- fileInfoType{fileName + string(os.PathSeparator), name}
+						chFiles <- fileInfoType{filePath: fileName + string(os.PathSeparator), dir: name, size: 0, lastModified: f.ModTime().Unix(), isDir: f.IsDir()}
 					}
 				}
 			}
@@ -218,7 +221,7 @@ func getFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOperations) 
 		}
 
 		if matchPatterns(filepath.Join(dpath, fileName), fo.Operation.Filters) {
-			chFiles <- fileInfoType{fileName, name}
+			chFiles <- fileInfoType{filePath: fileName, dir: name, size: realFileSize, lastModified: f.ModTime().Unix(), isDir: f.IsDir()}
 		}
 		return nil
 	}
@@ -259,14 +262,14 @@ func getCurrentDirFileList(dpath string, chFiles chan<- fileInfoType, fo *FileOp
 			}
 
 			if matchPatterns(filepath.Join(dpath, fileInfo.Name()), fo.Operation.Filters) {
-				chFiles <- fileInfoType{fileInfo.Name(), dpath}
+				chFiles <- fileInfoType{filePath: fileInfo.Name(), dir: dpath, size: fileInfo.Size(), lastModified: fileInfo.ModTime().Unix(), isDir: fileInfo.IsDir()}
 			}
 		}
 	}
 	return nil
 }
 
-func getLocalFileKeys(fileUrl StorageUrl, keys map[string]string, fo *FileOperations) error {
+func getLocalFileKeys(fileUrl StorageUrl, keys map[string]commonInfoType, fo *FileOperations, objType string) error {
 	strPath := fileUrl.ToString()
 	if !strings.HasSuffix(strPath, string(os.PathSeparator)) {
 		strPath += string(os.PathSeparator)
@@ -274,7 +277,7 @@ func getLocalFileKeys(fileUrl StorageUrl, keys map[string]string, fo *FileOperat
 
 	chFiles := make(chan fileInfoType, ChannelSize)
 	chFinish := make(chan error, 2)
-	go ReadLocalFileKeys(chFiles, chFinish, keys, fo)
+	go ReadLocalFileKeys(chFiles, chFinish, keys, fo, objType)
 	go GetFileList(strPath, chFiles, chFinish, fo)
 	select {
 	case err := <-chFinish:
@@ -286,21 +289,83 @@ func getLocalFileKeys(fileUrl StorageUrl, keys map[string]string, fo *FileOperat
 }
 
 // ReadLocalFileKeys 读取本地文件keys
-func ReadLocalFileKeys(chFiles <-chan fileInfoType, chFinish chan<- error, keys map[string]string, fo *FileOperations) {
-	totalCount := 0
-	fmt.Printf("\n")
-	for fileInfo := range chFiles {
-		totalCount++
-		fmt.Printf("\rtotal file(directory) count:%d", totalCount)
-		keys[fileInfo.filePath] = ""
-		if len(keys) > MaxSyncNumbers {
-			fmt.Printf("\n")
-			chFinish <- fmt.Errorf("over max sync numbers %d", MaxSyncNumbers)
-			break
-		}
+func ReadLocalFileKeys(chFiles <-chan fileInfoType, chFinish chan<- error, keys map[string]commonInfoType, fo *FileOperations, objType string) {
+
+	results := make(chan commonInfoType, 1000)
+	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var wg sync.WaitGroup
+	for i := 0; i < runtime.NumCPU()*2; i++ { // 根据CPU核心数动态调整
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for fileInfo := range chFiles {
+				select {
+				case results <- commonInfoType{key: fileInfo.filePath, dir: fileInfo.dir, size: fileInfo.size, lastModifiedUnix: fileInfo.lastModified, isDir: fileInfo.isDir}:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
 	}
-	fmt.Printf("\rtotal file(directory) count:%d", totalCount)
-	chFinish <- nil
+
+	// 3. 启动结果收集器
+	go func() {
+		defer close(done)
+		totalCount := 0
+		lastReport := time.Now()
+		batchSize := 1000 // 批量处理大小
+		batch := make([]commonInfoType, 0, batchSize)
+
+		for res := range results {
+			totalCount++
+			batch = append(batch, res)
+
+			if len(batch) >= batchSize || time.Since(lastReport) > 100*time.Millisecond {
+				for _, item := range batch {
+					keys[item.key] = item
+				}
+				batch = batch[:0] // 重置批次
+
+				if objType == TypeSrc {
+					fo.SyncDeleteObjectInfo.srcCount = totalCount
+				} else {
+					fo.SyncDeleteObjectInfo.destCount = totalCount
+				}
+				lastReport = time.Now()
+
+				// 检查数量限制
+				if len(keys) > MaxSyncNumbers {
+					cancel() // 取消所有工作
+					chFinish <- fmt.Errorf("over max sync numbers %d", MaxSyncNumbers)
+					return
+				}
+			}
+		}
+
+		// 处理剩余批次
+		for _, item := range batch {
+			keys[item.key] = item
+		}
+
+		if objType == TypeSrc {
+			fo.SyncDeleteObjectInfo.srcCount = totalCount
+		} else {
+			fo.SyncDeleteObjectInfo.destCount = totalCount
+		}
+		chFinish <- nil
+	}()
+
+	// 4. 等待所有工作器完成
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// 5. 等待结果收集完成
+	<-done
 }
 
 // GetFileList 获取文件列表
@@ -310,4 +375,40 @@ func GetFileList(strPath string, chFiles chan<- fileInfoType, chFinish chan<- er
 	if err != nil {
 		chFinish <- err
 	}
+}
+
+func generateFileListByKeys(srcKeys, uploadKeys map[string]commonInfoType, chFiles chan<- fileInfoType, chListError chan<- error, fo *FileOperations) {
+	defer close(chFiles)
+
+	// 使用 WaitGroup 等待两个任务完成
+	var wg sync.WaitGroup
+	wg.Add(2) // 等待两个任务
+
+	// 任务1：扫描统计（在后台执行）
+	go func() {
+		defer wg.Done()
+		for _, v := range srcKeys {
+			fo.Monitor.updateScanSizeNum(v.size, 1)
+		}
+		fo.Monitor.setScanEnd()
+		freshProgress()
+	}()
+
+	// 任务2：发送文件信息（在后台执行）
+	go func() {
+		defer wg.Done()
+		for k, v := range srcKeys {
+			if _, exists := uploadKeys[k]; exists {
+				chFiles <- fileInfoType{v.key, v.dir, v.size, v.lastModifiedUnix, v.isDir, false}
+			} else {
+				chFiles <- fileInfoType{v.key, v.dir, v.size, v.lastModifiedUnix, v.isDir, true}
+			}
+		}
+		// 发送完成信号
+		chListError <- nil
+	}()
+
+	// 等待两个任务完成
+	wg.Wait()
+
 }

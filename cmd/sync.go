@@ -63,6 +63,7 @@ Example:
 		force, _ := cmd.Flags().GetBool("force")
 		skipDir, _ := cmd.Flags().GetBool("skip-dir")
 		update, _ := cmd.Flags().GetBool("update")
+		ignoreExisting, _ := cmd.Flags().GetBool("ignore-existing")
 		acl, _ := cmd.Flags().GetString("acl")
 		grantRead, _ := cmd.Flags().GetString("grant-read")
 		//grantWrite, _ := cmd.Flags().GetString("grant-write")
@@ -131,6 +132,10 @@ Example:
 
 		_, filters := util.GetFilter(include, exclude)
 
+		if delete && !recursive {
+			return fmt.Errorf("delete can only use with --recursive option")
+		}
+
 		fo := &util.FileOperations{
 			Operation: util.Operation{
 				Recursive:         recursive,
@@ -161,6 +166,7 @@ Example:
 				Force:             force,
 				SkipDir:           skipDir,
 				Update:            update,
+				IgnoreExisting:    ignoreExisting,
 				Acl:               acl,
 				GrantRead:         grantRead,
 				//GrantWrite:        grantWrite,
@@ -217,6 +223,11 @@ Example:
 			// 是否关闭crc64
 			if fo.Operation.DisableCrc64 {
 				c.Conf.EnableCRC = false
+			}
+			// 获取桶类型
+			fo.BucketType, err = util.GetBucketType(c, fo.Param, fo.Config, bucketName)
+			if err != nil {
+				return err
 			}
 			// 上传
 			err = util.SyncUpload(c, srcUrl, destUrl, fo)
@@ -311,6 +322,7 @@ Example:
 			return fmt.Errorf("cospath needs to contain cos://")
 		}
 		util.CloseErrorOutputFile(fo)
+		util.CloseProcessLoggerFile(fo)
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
 
@@ -376,7 +388,8 @@ func init() {
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
 	syncCmd.Flags().Bool("skip-dir", false, "Skip folders during upload.")
-	syncCmd.Flags().Bool("update", false, "The upload will only be performed if the target file does not exist, or if the source file's last modified time is later than the target file's.")
+	syncCmd.Flags().Bool("update", false, "Only when the target file does not exist will the operation be executed, or if the source file's last modified time is later than the target file's.")
+	syncCmd.Flags().Bool("ignore-existing", false, "Only when the target file does not exist will the operation be executed.")
 	syncCmd.Flags().String("acl", "", "Defines the Access Control List (ACL) property of an object. The default value is default.")
 	syncCmd.Flags().String("grant-read", "", "Grants the grantee permission to read the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
 	//syncCmd.Flags().String("grant-write", "", "Grants the grantee permission to write the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id='100000000001',id=\"100000000002\".")

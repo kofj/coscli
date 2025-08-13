@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
 	"net/http"
@@ -50,7 +49,7 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 
 	// 统计文件数量及大小数据
 	go fileStatistic(localPath, fo)
-	// 生成文件列表
+	//  统计文件数量及大小数据&生成文件列表
 	go generateFileList(localPath, chFiles, chListError, fo)
 
 	for i := 0; i < fo.Operation.Routines; i++ {
@@ -80,7 +79,6 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 
 	close(chLog)
 	wgLogger.Wait()
-	logger.Info("logger record completed")
 
 	closeProgress()
 	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
@@ -102,15 +100,19 @@ func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <
 			skip, err, isDir, size, transferSize, msg = SingleUpload(c, fo, file, cosUrl)
 			endT := time.Now().UnixNano() / 1000 / 1000
 			costTime := int(endT - startT)
+			skipMsg := ""
+			if skip {
+				skipMsg = "(skip)"
+			}
 			if retry == 0 {
 				if err == nil {
-					processMsg += fmt.Sprintf("[%s] %s successed,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, costTime)
+					processMsg += fmt.Sprintf("[%s] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, skipMsg, costTime)
 				} else {
 					processMsg += fmt.Sprintf("[%s] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, err, costTime)
 				}
 			} else {
 				if err == nil {
-					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, costTime)
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, skipMsg, costTime)
 				} else {
 					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err, costTime)
 				}
@@ -163,6 +165,15 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 	var snapshotKey string
 
 	msg = fmt.Sprintf("Upload %s to %s", localFilePath, getCosUrl(cosUrl.(*CosUrl).Bucket, cosPath))
+
+	// 标记跳过的文件直接跳过
+	if file.skip {
+		size = fileInfo.Size()
+		isDir = fileInfo.IsDir()
+		skip = true
+		return
+	}
+
 	if fileInfo.IsDir() {
 		isDir = true
 		if fo.Operation.SkipDir {
@@ -270,4 +281,65 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 	}
 
 	return
+}
+
+// UploadWithDelete 镜像同步上传文件
+func UploadWithDelete(c *cos.Client, cosUrl StorageUrl, srcKeys, uploadKeys map[string]commonInfoType, fo *FileOperations) {
+	startT := time.Now().UnixNano() / 1000 / 1000
+
+	fo.Monitor.init(fo.CpType)
+	chProgressSignal = make(chan chProgressSignalType, 10)
+	go progressBar(fo)
+
+	chFiles := make(chan fileInfoType, ChannelSize)
+	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
+	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
+	// 生成文件列表
+	go generateFileListByKeys(srcKeys, uploadKeys, chFiles, chListError, fo)
+
+	for i := 0; i < fo.Operation.Routines; i++ {
+		go uploadFiles(c, cosUrl, fo, chFiles, chError, chLog)
+	}
+
+	completed := 0
+	for completed <= fo.Operation.Routines {
+		select {
+		case err := <-chListError:
+			if err != nil {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+			completed++
+		case err := <-chError:
+			if err == nil {
+				completed++
+			} else {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+		}
+	}
+
+	close(chLog)
+	wgLogger.Wait()
+
+	closeProgress()
+	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
 }
