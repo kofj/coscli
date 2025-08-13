@@ -261,7 +261,7 @@ func getCosObjectList(c *cos.Client, cosUrl StorageUrl, chObjects chan<- objectI
 	defer func() {
 		endTime := time.Now().UnixNano() / 1000 / 1000
 		costTime := int(endTime - startTime)
-		logger.Info(fmt.Sprintf("get cos list cost %dms", costTime/1000))
+		logger.Info(fmt.Sprintf("get cos list cost %ds", costTime/1000))
 	}()
 	if chObjects != nil {
 		defer close(chObjects)
