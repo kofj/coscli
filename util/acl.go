@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// PutBucketAcl todo
 func PutBucketAcl(c *cos.Client, aclSettings ACLSettings) error {
 	var err error
 	opt := &cos.BucketPutACLOptions{
@@ -30,6 +31,7 @@ func PutBucketAcl(c *cos.Client, aclSettings ACLSettings) error {
 	return nil
 }
 
+// GetBucketAcl todo
 func GetBucketAcl(c *cos.Client) error {
 	var err error
 	var acl *cos.BucketGetACLResult
@@ -44,6 +46,7 @@ func GetBucketAcl(c *cos.Client) error {
 	return nil
 }
 
+// PutObjectAcl todo
 func PutObjectAcl(c *cos.Client, object, versionId, bucketType string, aclSettings ACLSettings) error {
 	var err error
 	opt := &cos.ObjectPutACLOptions{
@@ -71,6 +74,7 @@ func PutObjectAcl(c *cos.Client, object, versionId, bucketType string, aclSettin
 	return nil
 }
 
+// GetObjectAcl todo
 func GetObjectAcl(c *cos.Client, object, versionId, bucketType string) error {
 	var err error
 	var acl *cos.ObjectGetACLResult
@@ -90,6 +94,7 @@ func GetObjectAcl(c *cos.Client, object, versionId, bucketType string) error {
 	return nil
 }
 
+// RenderACLTable todo
 func RenderACLTable(acl *cos.ACLXml) {
 	// 创建表格
 	table := tablewriter.NewWriter(os.Stdout)

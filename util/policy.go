@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// PutBucketPolicy todo
 func PutBucketPolicy(c *cos.Client, policy string) error {
 	configurationContent, err := GetContent(policy)
 	if err != nil {
@@ -29,6 +30,7 @@ func PutBucketPolicy(c *cos.Client, policy string) error {
 	return nil
 }
 
+// GetBucketPolicy todo
 func GetBucketPolicy(c *cos.Client) error {
 	var err error
 	var policy *cos.BucketGetPolicyResult
@@ -42,6 +44,7 @@ func GetBucketPolicy(c *cos.Client) error {
 	return nil
 }
 
+// DeleteBucketPolicy todo
 func DeleteBucketPolicy(c *cos.Client) error {
 	_, err := c.Bucket.DeletePolicy(context.Background())
 	if err != nil {

@@ -65,6 +65,7 @@ func readFile(filePath string) ([]byte, error) {
 	return content, nil
 }
 
+// ParseContent todo
 func ParseContent[T any](content []byte, target *T) error {
 	// 检查内容是否为空
 	if len(content) == 0 {

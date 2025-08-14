@@ -8,6 +8,7 @@ import (
 	"os"
 )
 
+// PutBucketEncryption todo
 func PutBucketEncryption(c *cos.Client, bucketEncryptionSettings BucketEncryptionSettings) error {
 	var err error
 	opt := &cos.BucketPutEncryptionOptions{
@@ -26,6 +27,7 @@ func PutBucketEncryption(c *cos.Client, bucketEncryptionSettings BucketEncryptio
 	return nil
 }
 
+// GetBucketEncryption todo
 func GetBucketEncryption(c *cos.Client) error {
 	var err error
 	var encryption *cos.BucketGetEncryptionResult
@@ -39,6 +41,7 @@ func GetBucketEncryption(c *cos.Client) error {
 	return nil
 }
 
+// DeleteBucketEncryption todo
 func DeleteBucketEncryption(c *cos.Client) error {
 	_, err := c.Bucket.DeleteEncryption(context.Background())
 	return err

@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// PutBucketTagging todo
 func PutBucketTagging(c *cos.Client, tags []string) error {
 
 	tg := &cos.BucketPutTaggingOptions{}
@@ -30,6 +31,7 @@ func PutBucketTagging(c *cos.Client, tags []string) error {
 	return nil
 }
 
+// GetBucketTagging todo
 func GetBucketTagging(c *cos.Client) error {
 	v, _, err := c.Bucket.GetTagging(context.Background())
 	if err != nil {
@@ -47,6 +49,7 @@ func GetBucketTagging(c *cos.Client) error {
 	return nil
 }
 
+// DeleteBucketTagging todo
 func DeleteBucketTagging(c *cos.Client) error {
 	_, err := c.Bucket.DeleteTagging(context.Background())
 	if err != nil {
@@ -55,6 +58,7 @@ func DeleteBucketTagging(c *cos.Client) error {
 	return nil
 }
 
+// DeleteDesBucketTagging todo
 func DeleteDesBucketTagging(c *cos.Client, tags []string) error {
 	d, _, err := c.Bucket.GetTagging(context.Background())
 	if err != nil {
@@ -87,6 +91,7 @@ func DeleteDesBucketTagging(c *cos.Client, tags []string) error {
 	return nil
 }
 
+// AddBucketTagging todo
 func AddBucketTagging(c *cos.Client, tags []string) error {
 	d, _, err := c.Bucket.GetTagging(context.Background())
 	if err != nil {
@@ -118,6 +123,7 @@ func AddBucketTagging(c *cos.Client, tags []string) error {
 	return nil
 }
 
+// PutObjectTagging todo
 func PutObjectTagging(c *cos.Client, object string, tags []string, versionId, bucketType string) error {
 	var err error
 	tg := &cos.ObjectPutTaggingOptions{}
@@ -142,6 +148,7 @@ func PutObjectTagging(c *cos.Client, object string, tags []string, versionId, bu
 	return nil
 }
 
+// GetObjectTagging todo
 func GetObjectTagging(c *cos.Client, object, versionId, bucketType string) error {
 	var err error
 	var v *cos.ObjectGetTaggingResult
@@ -166,6 +173,7 @@ func GetObjectTagging(c *cos.Client, object, versionId, bucketType string) error
 	return nil
 }
 
+// DeleteObjectTagging todo
 func DeleteObjectTagging(c *cos.Client, object, versionId, bucketType string) error {
 	var err error
 	if bucketType == BucketTypeOfs {
@@ -180,6 +188,7 @@ func DeleteObjectTagging(c *cos.Client, object, versionId, bucketType string) er
 	return nil
 }
 
+// DeleteDesObjectTagging todo
 func DeleteDesObjectTagging(c *cos.Client, object string, tags []string, versionId, bucketType string) error {
 	var err error
 	var res *cos.ObjectGetTaggingResult
@@ -224,6 +233,7 @@ func DeleteDesObjectTagging(c *cos.Client, object string, tags []string, version
 	return nil
 }
 
+// AddObjectTagging todo
 func AddObjectTagging(c *cos.Client, object string, tags []string, versionId, bucketType string) error {
 	var err error
 	var res *cos.ObjectGetTaggingResult

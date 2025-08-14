@@ -177,6 +177,7 @@ func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo
 	chError <- nil
 }
 
+// singleCopy todo
 func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInfo objectInfoType, srcUrl, destUrl StorageUrl, VersionId ...string) (skip bool, rErr error, isDir bool, size int64, msg string) {
 	skip = false
 	rErr = nil
@@ -293,6 +294,9 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	return
 }
 
+// CosCopyWithDelete copies files from source to destination with delete option.
+// It takes srcClient and destClient as COS clients, srcKeys and copyKeys as maps of source and destination keys,
+// srcUrl and destUrl as storage URLs, and fo as a FileOperations object.
 func CosCopyWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[string]commonInfoType, srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	startT := time.Now().UnixNano() / 1000 / 1000
 
@@ -314,6 +318,7 @@ func CosCopyWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[
 	return nil
 }
 
+// batchCopyFilesWithDelete todo
 func batchCopyFilesWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[string]commonInfoType, srcUrl, destUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
 	chError := make(chan error, fo.Operation.Routines)

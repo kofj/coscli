@@ -454,6 +454,7 @@ func DeleteLocalFiles(keysToDelete map[string]commonInfoType, fileUrl StorageUrl
 	return nil
 }
 
+// CheckBackupDir todo
 func CheckBackupDir(fileUrl StorageUrl, fo *FileOperations) error {
 	createDir := false
 	f, err := os.Stat(fileUrl.ToString())

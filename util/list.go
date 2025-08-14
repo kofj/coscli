@@ -427,6 +427,9 @@ func tableRender(lsCounter *LsCounter) {
 	}
 }
 
+// ListBuckets lists all buckets for the given cos.Client with a limit on the number of buckets returned.
+// c: A pointer to the cos.Client object.
+// limit: The maximum number of buckets to return.
 func ListBuckets(c *cos.Client, limit int) error {
 	var buckets []cos.Bucket
 	marker := ""

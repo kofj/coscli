@@ -338,6 +338,7 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	return
 }
 
+// DownloadWithDelete todo
 func DownloadWithDelete(c *cos.Client, srcKeys, downloadKeys map[string]commonInfoType, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) error {
 	startT := time.Now().UnixNano() / 1000 / 1000
 

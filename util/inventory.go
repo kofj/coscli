@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// PutBucketInventory todo
 func PutBucketInventory(c *cos.Client, id, configuration string) error {
 	configurationContent, err := GetContent(configuration)
 	if err != nil {
@@ -29,6 +30,7 @@ func PutBucketInventory(c *cos.Client, id, configuration string) error {
 	return err
 }
 
+// GetBucketInventory todo
 func GetBucketInventory(c *cos.Client, id string) error {
 	res, _, err := c.Bucket.GetInventory(context.Background(), id)
 	if err != nil {
@@ -38,6 +40,7 @@ func GetBucketInventory(c *cos.Client, id string) error {
 	return err
 }
 
+// DeleteBucketInventory todo
 func DeleteBucketInventory(c *cos.Client, id string) error {
 	_, err := c.Bucket.DeleteInventory(context.Background(), id)
 	if err != nil {
@@ -47,6 +50,7 @@ func DeleteBucketInventory(c *cos.Client, id string) error {
 	return err
 }
 
+// PostBucketInventory todo
 func PostBucketInventory(c *cos.Client, id, configuration string) error {
 	configurationContent, err := GetContent(configuration)
 	if err != nil {
@@ -199,6 +203,7 @@ func formatDetailedFields(fields *cos.BucketInventoryOptionalFields) string {
 	return strings.Join(fields.BucketInventoryFields, "\n")
 }
 
+// RenderInventoryConfigDetail todo
 func RenderInventoryConfigDetail(config *cos.BucketGetInventoryResult) {
 	// 创建表格
 	table := tablewriter.NewWriter(os.Stdout)

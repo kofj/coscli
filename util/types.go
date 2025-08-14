@@ -192,10 +192,13 @@ type LsCounter struct {
 	Table      *tablewriter.Table
 }
 
+// SyncDeleteObjectInfo todo
 type SyncDeleteObjectInfo struct {
 	srcCount  int
 	destCount int
 }
+
+// ACLSettings todo
 type ACLSettings struct {
 	ACL              string
 	GrantRead        string
@@ -205,12 +208,14 @@ type ACLSettings struct {
 	GrantFullControl string
 }
 
+// BucketEncryptionSettings todo
 type BucketEncryptionSettings struct {
 	SSEAlgorithm   string
 	KMSMasterKeyID string
 	KMSAlgorithm   string
 }
 
+// BucketInventorySettings todo
 type BucketInventorySettings struct {
 	ID             string
 	KMSMasterKeyID string
