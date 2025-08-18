@@ -29,7 +29,7 @@ const (
 )
 
 const (
-	Version             string = "v1.0.6"
+	Version             string = "v1.0.7"
 	Package             string = "coscli"
 	SchemePrefix        string = "cos://"
 	CosSeparator        string = "/"
