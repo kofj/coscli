@@ -109,6 +109,7 @@ type Operation struct {
 	StorageClass         string
 	RateLimiting         float32
 	PartSize             int64
+	CheckPoint           bool
 	ThreadNum            int
 	Routines             int
 	FailOutput           bool

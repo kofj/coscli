@@ -10,10 +10,10 @@ import (
 	"strings"
 )
 
-var standardCnt, standardIACnt, intelligentTieringCnt, archiveCnt, deepArchiveCnt int
-var mazStandardCnt, mazStandardIACnt, mazIntelligentTieringCnt, mazArchiveCnt int
-var standardSize, standardIASize, intelligentTieringSize, archiveSize, deepArchiveSize int64
-var mazStandardSize, mazStandardIASize, mazIntelligentTieringSize, mazArchiveSize int64
+var standardCnt, standardIACnt, intelligentTieringCnt, archiveCnt, deepArchiveCnt, coldCnt int
+var mazStandardCnt, mazStandardIACnt, mazIntelligentTieringCnt, mazArchiveCnt, mazColdCnt int
+var standardSize, standardIASize, intelligentTieringSize, archiveSize, deepArchiveSize, coldSize int64
+var mazStandardSize, mazStandardIASize, mazIntelligentTieringSize, mazArchiveSize, mazColdSize int64
 
 var deleteMarkerCnt int
 var totalCnt int
@@ -167,6 +167,12 @@ func statisticObjects(object cos.Object, duType int) {
 		case MAZArchive:
 			mazArchiveCnt++
 			mazArchiveSize += object.Size
+		case Cold:
+			coldCnt++
+			coldSize += object.Size
+		case MAZCold:
+			mazColdCnt++
+			mazColdSize += object.Size
 		}
 	}
 	totalSize += object.Size
@@ -203,6 +209,12 @@ func statisticObjectVersions(object cos.ListVersionsResultVersion, duType int) {
 		case MAZArchive:
 			mazArchiveCnt++
 			mazArchiveSize += object.Size
+		case Cold:
+			coldCnt++
+			coldSize += object.Size
+		case MAZCold:
+			mazColdCnt++
+			mazColdSize += object.Size
 		}
 	}
 	totalSize += object.Size
@@ -221,6 +233,12 @@ func printStatistic(allVersions bool) {
 	table.Append([]string{MAZStandardIA, fmt.Sprintf("%d", mazStandardIACnt), FormatSize(mazStandardIASize)})
 	table.Append([]string{MAZIntelligentTiering, fmt.Sprintf("%d", mazIntelligentTieringCnt), FormatSize(mazIntelligentTieringSize)})
 	table.Append([]string{MAZArchive, fmt.Sprintf("%d", mazArchiveCnt), FormatSize(mazArchiveSize)})
+	if coldCnt > 0 {
+		table.Append([]string{Cold, fmt.Sprintf("%d", coldCnt), FormatSize(coldSize)})
+	}
+	if mazColdCnt > 0 {
+		table.Append([]string{MAZCold, fmt.Sprintf("%d", mazColdCnt), FormatSize(mazColdSize)})
+	}
 
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
 	table.SetBorders(tablewriter.Border{

@@ -287,7 +287,7 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		},
 		PartSize:        fo.Operation.PartSize,
 		ThreadPoolSize:  threadNum,
-		CheckPoint:      true,
+		CheckPoint:      fo.Operation.CheckPoint,
 		CheckPointFile:  "",
 		DisableChecksum: fo.Operation.DisableChecksum,
 	}

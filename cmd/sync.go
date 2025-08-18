@@ -77,6 +77,7 @@ Example:
 		sseCustomerAglo, _ := cmd.Flags().GetString("sse-customer-aglo")
 		sseCustomerKey, _ := cmd.Flags().GetString("sse-customer-key")
 		sseCustomerKeyMD5, _ := cmd.Flags().GetString("sse-customer-key-md5")
+		checkPoint, _ := cmd.Flags().GetBool("check-point")
 
 		// 服务端加密参数验证
 		encryptionType = strings.ToUpper(encryptionType)
@@ -185,6 +186,7 @@ Example:
 				SSECustomerAglo:      sseCustomerAglo,
 				SSECustomerKey:       sseCustomerKey,
 				SSECustomerKeyMD5:    sseCustomerKeyMD5,
+				CheckPoint:           checkPoint,
 			},
 			Monitor:       &util.FileProcessMonitor{},
 			Config:        &config,
@@ -409,4 +411,5 @@ func init() {
 	syncCmd.Flags().String("sse-customer-aglo", "", "SSE-C encryption refers to server-side encryption with customer-provided keys. The encryption keys are provided by the user, and when uploading objects, COS will use the user-provided encryption keys to encrypt the user's data. The SSE-C mode supports two encryption algorithms: AES256 and SM4.")
 	syncCmd.Flags().String("sse-customer-key", "", "The user-provided key should be a 32-byte string, supporting combinations of numbers, letters, and special characters. Chinese characters are not supported.")
 	syncCmd.Flags().String("sse-customer-key-md5", "", "The MD5 value of the user-provided key")
+	syncCmd.Flags().Bool("check-point", true, "Whether to enable breakpoint resume, default is true, enable breakpoint resume.")
 }

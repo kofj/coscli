@@ -248,7 +248,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 			},
 			PartSize:        fo.Operation.PartSize,
 			ThreadPoolSize:  threadNum,
-			CheckPoint:      true,
+			CheckPoint:      fo.Operation.CheckPoint,
 			DisableChecksum: fo.Operation.DisableChecksum,
 		}
 
