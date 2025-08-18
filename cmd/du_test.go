@@ -127,6 +127,30 @@ func TestDuCmd(t *testing.T) {
 				fmt.Printf(" : %v", e)
 				So(e, ShouldBeError)
 			})
+			Convey("get bucket version error", func() {
+				clearCmd()
+				cmd := rootCmd
+				patches := ApplyFunc(util.GetBucketVersioning, func(c *cos.Client) (res *cos.BucketGetVersionResult, resp *cos.Response, err error) {
+					return nil, nil, fmt.Errorf("get bucket version error")
+				})
+				defer patches.Reset()
+				args = []string{"du", versioningFileName, "--all-versions"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("versioning is not enabled", func() {
+				clearCmd()
+				cmd := rootCmd
+				patches := ApplyFunc(util.GetBucketVersioning, func(c *cos.Client) (res *cos.BucketGetVersionResult, resp *cos.Response, err error) {
+					return &cos.BucketGetVersionResult{Status: util.VersionStatusSuspended}, nil, nil
+				})
+				defer patches.Reset()
+				args = []string{"du", versioningFileName, "--all-versions"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
 		})
 	})
 }

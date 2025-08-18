@@ -112,7 +112,7 @@ func TestRestoreCmd(t *testing.T) {
 			Convey("RestoreObjects", func() {
 				clearCmd()
 				cmd := rootCmd
-				patches := ApplyFunc(util.RestoreObjects, func(c *cos.Client, cosUrl util.StorageUrl, fo *util.FileOperations) error {
+				patches := ApplyFunc(util.RestoreObjects, func(c *cos.Client, cosUrl util.StorageUrl, fo *util.FileOperations, bucketType string) error {
 					return fmt.Errorf("test RestoreObjects error")
 				})
 				defer patches.Reset()

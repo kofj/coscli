@@ -65,7 +65,7 @@ func getOfsObjectListRecursion(c *cos.Client, cosUrl StorageUrl, chObjects chan<
 						objPrefix = object.Key[:index+1]
 						objKey = object.Key[index+1:]
 					}
-					chObjects <- objectInfoType{objPrefix, objKey, int64(object.Size), object.LastModified}
+					chObjects <- objectInfoType{prefix: objPrefix, relativeKey: objKey, size: object.Size, lastModified: object.LastModified}
 				}
 			}
 		}
@@ -85,7 +85,7 @@ func getOfsObjectListRecursion(c *cos.Client, cosUrl StorageUrl, chObjects chan<
 							objPrefix = commonPrefix[:index+1]
 							objKey = commonPrefix[index+1:]
 						}
-						chObjects <- objectInfoType{objPrefix, objKey, int64(0), ""}
+						chObjects <- objectInfoType{prefix: objPrefix, relativeKey: objKey, size: int64(0), lastModified: ""}
 					}
 				}
 
@@ -103,7 +103,6 @@ func getOfsObjectListRecursion(c *cos.Client, cosUrl StorageUrl, chObjects chan<
 	}
 	return nil
 }
-
 func getOfsObjectListForLs(c *cos.Client, prefix string, marker string, limit int, recursive bool) (err error, objects []cos.Object, commonPrefixes []string, isTruncated bool, nextMarker string) {
 
 	delimiter := ""
@@ -131,11 +130,13 @@ func getOfsObjectListForLs(c *cos.Client, prefix string, marker string, limit in
 	return
 }
 
-func GetOfsKeys(c *cos.Client, cosUrl StorageUrl, keys map[string]string, fo *FileOperations) error {
+// GetOfsKeys reads the keys from the COS URL and returns an error if any occurs.
+// c: *cos.Client, cosUrl: StorageUrl, keys: map[string]string, fo: *FileOperations
+func GetOfsKeys(c *cos.Client, cosUrl StorageUrl, keys map[string]commonInfoType, fo *FileOperations, objType string) error {
 
 	chFiles := make(chan objectInfoType, ChannelSize)
 	chFinish := make(chan error, 2)
-	go ReadCosKeys(keys, cosUrl, chFiles, chFinish)
+	go ReadCosKeys(keys, cosUrl, chFiles, chFinish, fo, objType)
 	go getOfsObjectList(c, cosUrl, chFiles, chFinish, fo, false, false)
 	select {
 	case err := <-chFinish:

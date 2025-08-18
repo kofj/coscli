@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/tencentyun/cos-go-sdk-v5"
@@ -18,61 +19,162 @@ import (
 var fileRemoveCount int
 var totalDeleteErrCount int
 
-func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations) (map[string]string, error) {
+func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl StorageUrl, fo *FileOperations) (map[string]commonInfoType, map[string]commonInfoType, map[string]commonInfoType, error) {
+	// 创建结果通道
+	srcKeysChan := make(chan map[string]commonInfoType)
+	destKeysChan := make(chan map[string]commonInfoType)
+	errChan := make(chan error, 2) // 缓冲通道避免阻塞
+
+	// 启动进度打印协程
+	progressCtx, progressCancel := context.WithCancel(context.Background())
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Printf("\rProcessing source num: %d,destination num: %d", fo.SyncDeleteObjectInfo.srcCount, fo.SyncDeleteObjectInfo.destCount)
+			case <-progressCtx.Done():
+				return
+			}
+		}
+	}()
+
+	// 并发获取源端键列表
+	go func() {
+		keys := make(map[string]commonInfoType)
+		var err error
+
+		if srcUrl.IsFileUrl() {
+			err = getLocalFileKeys(srcUrl, keys, fo, TypeSrc)
+		} else {
+			if fo.BucketType == BucketTypeOfs {
+				err = GetOfsKeys(srcClient, srcUrl, keys, fo, TypeSrc)
+			} else {
+				err = GetCosKeys(srcClient, srcUrl, keys, fo, TypeSrc)
+			}
+		}
+
+		if err != nil {
+			errChan <- err
+			return
+		}
+		srcKeysChan <- keys
+	}()
+
+	// 并发获取目标端键列表
+	go func() {
+		keys := make(map[string]commonInfoType)
+		var err error
+
+		if destUrl.IsFileUrl() {
+			err = getLocalFileKeys(destUrl, keys, fo, TypeDest)
+		} else {
+			if fo.BucketType == BucketTypeOfs {
+				err = GetOfsKeys(destClient, destUrl, keys, fo, TypeDest)
+			} else {
+				err = GetCosKeys(destClient, destUrl, keys, fo, TypeDest)
+			}
+		}
+
+		if err != nil {
+			errChan <- err
+			return
+		}
+		destKeysChan <- keys
+	}()
+
+	// 等待结果
+	var srcKeys, destKeys map[string]commonInfoType
 	var err error
-	srcKeys := make(map[string]string)
-	destKeys := make(map[string]string)
-	if srcUrl.IsFileUrl() {
-		err = getLocalFileKeys(srcUrl, srcKeys, fo)
-	} else {
-		if fo.BucketType == "OFS" {
-			err = GetOfsKeys(srcClient, srcUrl, srcKeys, fo)
-		} else {
-			err = GetCosKeys(srcClient, srcUrl, srcKeys, fo)
-		}
 
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if destUrl.IsFileUrl() {
-		err = getLocalFileKeys(destUrl, destKeys, fo)
-	} else {
-		if fo.BucketType == "OFS" {
-			err = GetOfsKeys(destClient, destUrl, destKeys, fo)
-		} else {
-			err = GetCosKeys(destClient, destUrl, destKeys, fo)
+	// 收集结果和错误
+	for i := 0; i < 2; i++ {
+		select {
+		case keys := <-srcKeysChan:
+			srcKeys = keys
+		case keys := <-destKeysChan:
+			destKeys = keys
+		case e := <-errChan:
+			if err == nil {
+				err = e
+			}
 		}
 	}
 
+	// 如果有错误，提前返回
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
+	}
+
+	// 取完列表后终止进度打印，并输出最终结果
+	progressCancel()
+	fmt.Printf("\rTotal source num: %d,destination num: %d", fo.SyncDeleteObjectInfo.srcCount, fo.SyncDeleteObjectInfo.destCount)
+
+	delKeys := make(map[string]commonInfoType)
+	for k, v := range destKeys {
+		delKeys[k] = v
+	}
+
+	transferKeys := make(map[string]commonInfoType)
+	for k, v := range srcKeys {
+		transferKeys[k] = v
 	}
 
 	// 根据操作系统和操作类型筛选出需要删除的对象或文件
 	isLinux := (string(os.PathSeparator) == "/")
-	for k, _ := range srcKeys {
+	for k := range srcKeys {
 		if isLinux || fo.CpType == CpTypeCopy {
-			delete(destKeys, k)
+			delete(delKeys, k)
 		} else if fo.CpType == CpTypeUpload {
-			delete(destKeys, strings.Replace(k, "\\", "/", -1))
+			delete(delKeys, strings.Replace(k, "\\", "/", -1))
 		} else {
-			delete(destKeys, strings.Replace(k, "/", "\\", -1))
+			delete(delKeys, strings.Replace(k, "/", "\\", -1))
 		}
 	}
 
-	if destUrl.IsFileUrl() {
-		fmt.Printf("\nfile(directory) will be removed count:%d\n", len(destKeys))
-	} else {
-		fmt.Printf("\nobject will be deleted count:%d\n", len(destKeys))
+	// 根据操作系统和操作类型筛选出需要传输的对象或文件
+	if fo.Operation.IgnoreExisting || fo.Operation.Update {
+		for k, v := range destKeys {
+			// 源端不存在，目的端存在
+			if _, exists := transferKeys[k]; !exists {
+				continue
+			}
+			shouldDelete := false
+
+			if fo.Operation.IgnoreExisting {
+				// 启用跳过已存在的文件
+				shouldDelete = true
+			} else if fo.Operation.Update && transferKeys[k].lastModifiedUnix <= v.lastModifiedUnix {
+				// 未启用跳过但启用更新时间检查，且源文件不新于目标文件
+				shouldDelete = true
+			}
+
+			if shouldDelete {
+				if isLinux || fo.CpType == CpTypeCopy {
+					delete(transferKeys, k)
+				} else if fo.CpType == CpTypeUpload {
+					delete(transferKeys, strings.Replace(k, "/", "\\", -1))
+				} else {
+					delete(transferKeys, strings.Replace(k, "\\", "/", -1))
+				}
+			}
+
+		}
 	}
 
-	return destKeys, nil
+	// 输出统计信息
+	if destUrl.IsFileUrl() {
+		fmt.Printf("\nfile(directory) will be removed count:%d\n", len(delKeys))
+	} else {
+		fmt.Printf("\nobject will be deleted count:%d\n", len(delKeys))
+	}
+
+	return srcKeys, delKeys, transferKeys, nil
 }
 
-func deleteKeys(c *cos.Client, keysToDelete map[string]string, destUrl StorageUrl, fo *FileOperations) error {
+func deleteKeys(c *cos.Client, keysToDelete map[string]commonInfoType, destUrl StorageUrl, fo *FileOperations) error {
 	// 根据类型区分删除cos上的对象还是本地文件
 	if fo.CpType == CpTypeCopy || fo.CpType == CpTypeUpload {
 		err := DeleteCosObjects(c, keysToDelete, destUrl, fo)
@@ -85,7 +187,9 @@ func deleteKeys(c *cos.Client, keysToDelete map[string]string, destUrl StorageUr
 	return nil
 }
 
-func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl StorageUrl, fo *FileOperations) error {
+// DeleteCosObjects deletes multiple COS objects based on the provided keysToDelete map.
+// It returns an error if any of the operations fail.
+func DeleteCosObjects(c *cos.Client, keysToDelete map[string]commonInfoType, cosUrl StorageUrl, fo *FileOperations) error {
 
 	errCount := 0
 	objects := []cos.Object{}
@@ -122,7 +226,7 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 
 		}
 
-		objects = append(objects, cos.Object{Key: v + k})
+		objects = append(objects, cos.Object{Key: v.dir + k})
 	}
 
 	if len(objects) > 0 && confirm(objects, fo, cosUrl) {
@@ -156,6 +260,16 @@ func DeleteCosObjects(c *cos.Client, keysToDelete map[string]string, cosUrl Stor
 	return nil
 }
 
+// DeleteCosObjectVersions deletes multiple object versions in a COS bucket.
+//
+// Parameters:
+// - c: *cos.Client - the COS client to use
+// - keysToDelete: []cos.Object - the keys of the object versions to delete
+// - cosUrl: StorageUrl - the COS bucket URL
+// - fo: *FileOperations - the file operations object
+//
+// Returns:
+// - error: an error if the deletion fails, otherwise nil
 func DeleteCosObjectVersions(c *cos.Client, keysToDelete []cos.Object, cosUrl StorageUrl, fo *FileOperations) error {
 
 	errCount := 0
@@ -261,7 +375,30 @@ func confirm(objects []cos.Object, fo *FileOperations, cosUrl StorageUrl) bool {
 	return true
 }
 
-func DeleteLocalFiles(keysToDelete map[string]string, fileUrl StorageUrl, fo *FileOperations) error {
+func confirmOfs(prefix string, fo *FileOperations, cosUrl StorageUrl) bool {
+	if fo.Operation.Force {
+		return true
+	}
+
+	var logBuffer bytes.Buffer
+	logBuffer.WriteString("\n")
+	if prefix == "" {
+		logBuffer.WriteString(fmt.Sprintf("Do you want to delete all the objects in the %s bucket? ", cosUrl.(*CosUrl).Bucket))
+	} else {
+		logBuffer.WriteString(fmt.Sprintf("Do you want to delete all the objects under the %s path? ", prefix))
+	}
+
+	fmt.Printf(logBuffer.String())
+
+	var val string
+	if _, err := fmt.Scanln(&val); err != nil || (strings.ToLower(val) != "yes" && strings.ToLower(val) != "y") {
+		return false
+	}
+	return true
+}
+
+// DeleteLocalFiles 删除本地文件
+func DeleteLocalFiles(keysToDelete map[string]commonInfoType, fileUrl StorageUrl, fo *FileOperations) error {
 	var sortList []string
 	for key, _ := range keysToDelete {
 		sortList = append(sortList, key)
@@ -317,6 +454,7 @@ func DeleteLocalFiles(keysToDelete map[string]string, fileUrl StorageUrl, fo *Fi
 	return nil
 }
 
+// CheckBackupDir todo
 func CheckBackupDir(fileUrl StorageUrl, fo *FileOperations) error {
 	createDir := false
 	f, err := os.Stat(fileUrl.ToString())
@@ -418,6 +556,7 @@ func moveFileToPath(srcName, destName string) error {
 	}
 }
 
+// RemoveObjects 删除cos对象
 func RemoveObjects(args []string, fo *FileOperations) error {
 	for _, arg := range args {
 
@@ -446,17 +585,27 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 			logger.Infof("Start remove prefix %s", getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object))
 		}
 
-		// 根据s.Header判断是否是融合桶或者普通桶
-		s, err := c.Bucket.Head(context.Background())
+		bucketType, err := GetBucketType(c, fo.Param, fo.Config, bucketName)
 		if err != nil {
 			return err
 		}
+
 		// 打印一个空行
 		fmt.Println()
 
-		if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+		if bucketType == BucketTypeOfs {
 			prefix := cosUrl.(*CosUrl).Object
-			err = RemoveOfsObjects("", c, cosUrl, prefix, fo)
+
+			if len(fo.Operation.Filters) == 0 {
+				if confirmOfs(prefix, fo, cosUrl) {
+					// 若不筛选路径，则直接使用?recursive 方式直接删除路径下所有内容
+					err = RemoveOfsObjectsRecursive(c, prefix)
+				} else {
+					logger.Info("Cancel deletion")
+				}
+			} else {
+				err = RemoveOfsObjects("", c, cosUrl, prefix, fo)
+			}
 		} else {
 			if fo.Operation.AllVersions {
 				err = RemoveCosObjectVersions(c, cosUrl, fo)
@@ -495,11 +644,50 @@ func RemoveObjects(args []string, fo *FileOperations) error {
 	return nil
 }
 
+// RemoveOfsObjectsRecursive 删除ofs对象
+func RemoveOfsObjectsRecursive(c *cos.Client, prefix string) error {
+	query := &url.Values{}
+	query.Add("recursive", "")
+	opt := &cos.ObjectDeleteOptions{
+		XOptionQuery: query,
+	}
+	isTruncated := true
+	marker := ""
+	var err error
+	var objects []cos.Object
+	if prefix == "" {
+		for isTruncated {
+			var commonPrefixes []string
+			err, objects, commonPrefixes, isTruncated, marker = getOfsObjectListForLs(c, prefix, marker, 0, false)
+
+			if err != nil {
+				return fmt.Errorf("list objects error : %v", err)
+			}
+
+			for _, object := range objects {
+				key, _ := url.QueryUnescape(object.Key)
+				_, err = c.Object.Delete(context.Background(), key)
+			}
+
+			if len(commonPrefixes) > 0 {
+				for _, commonPrefix := range commonPrefixes {
+					commonPrefix, _ = url.QueryUnescape(commonPrefix)
+					_, err = c.Object.Delete(context.Background(), commonPrefix, opt)
+				}
+			}
+		}
+	} else {
+		_, err = c.Object.Delete(context.Background(), prefix, opt)
+	}
+	return err
+}
+
+// RemoveOfsObjects 删除ofs对象
 func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix string, fo *FileOperations) error {
 	var err error
 	isTruncated := true
 	var objects []cos.Object
-	var keysToDelete map[string]string
+	var keysToDelete map[string]commonInfoType
 
 	for isTruncated {
 		var commonPrefixes []string
@@ -509,7 +697,7 @@ func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix st
 			return fmt.Errorf("list objects error : %v", err)
 		}
 
-		keysToDelete = make(map[string]string)
+		keysToDelete = make(map[string]commonInfoType)
 		for _, object := range objects {
 			key, _ := url.QueryUnescape(object.Key)
 			if cosObjectMatchPatterns(key, fo.Operation.Filters) {
@@ -520,7 +708,7 @@ func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix st
 					objPrefix = key[:index+1]
 					objKey = key[index+1:]
 				}
-				keysToDelete[objKey] = objPrefix
+				keysToDelete[objKey] = commonInfoType{key: objKey, dir: objPrefix}
 			}
 		}
 		err = DeleteCosObjects(c, keysToDelete, cosUrl, fo)
@@ -537,7 +725,7 @@ func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix st
 				}
 			}
 
-			keysToDelete = make(map[string]string)
+			keysToDelete = make(map[string]commonInfoType)
 			for _, commonPrefix := range commonPrefixes {
 				key, _ := url.QueryUnescape(commonPrefix)
 				if cosObjectMatchPatterns(key, fo.Operation.Filters) {
@@ -548,7 +736,7 @@ func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix st
 						objPrefix = key[:index+1]
 						objKey = key[index+1:]
 					}
-					keysToDelete[objKey] = objPrefix
+					keysToDelete[objKey] = commonInfoType{key: objKey, dir: objPrefix}
 				}
 			}
 			err = DeleteCosObjects(c, keysToDelete, cosUrl, fo)
@@ -560,6 +748,7 @@ func RemoveOfsObjects(marker string, c *cos.Client, cosUrl StorageUrl, prefix st
 	return nil
 }
 
+// RemoveCosObjects 删除cos对象
 func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	var objects []cos.Object
@@ -571,7 +760,7 @@ func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileO
 			return fmt.Errorf("list objects error : %v", err)
 		}
 
-		keysToDelete := make(map[string]string)
+		keysToDelete := make(map[string]commonInfoType)
 		for _, object := range objects {
 			object.Key, _ = url.QueryUnescape(object.Key)
 			if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
@@ -582,7 +771,7 @@ func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileO
 					objPrefix = object.Key[:index+1]
 					objKey = object.Key[index+1:]
 				}
-				keysToDelete[objKey] = objPrefix
+				keysToDelete[objKey] = commonInfoType{key: objKey, dir: objPrefix}
 			}
 		}
 
@@ -595,6 +784,7 @@ func RemoveCosObjects(marker string, c *cos.Client, cosUrl StorageUrl, fo *FileO
 	return nil
 }
 
+// RemoveCosObjectVersions 删除cos对象历史版本
 func RemoveCosObjectVersions(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	var versions []cos.ListVersionsResultVersion
@@ -633,6 +823,7 @@ func RemoveCosObjectVersions(c *cos.Client, cosUrl StorageUrl, fo *FileOperation
 	return nil
 }
 
+// RemoveObject 删除单个对象
 func RemoveObject(args []string, fo *FileOperations) error {
 	for _, arg := range args {
 
@@ -689,6 +880,7 @@ func RemoveObject(args []string, fo *FileOperations) error {
 	return nil
 }
 
+// RemoveObjectOrVersion 删除对象单个版本
 func RemoveObjectOrVersion(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
 	var err error
 	cosPath := getCosUrl(cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
@@ -753,6 +945,7 @@ func RemoveObjectOrVersion(c *cos.Client, cosUrl StorageUrl, fo *FileOperations)
 	return nil
 }
 
+// RemoveBucket 删除cos桶
 func RemoveBucket(bucketIDName string, c *cos.Client) error {
 
 	_, err := c.Bucket.Delete(context.Background())

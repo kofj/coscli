@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// FormatSize 格式化文件大小
 func FormatSize(b int64) string {
 	if b < 1024 {
 		return fmt.Sprintf("%d  B", b)

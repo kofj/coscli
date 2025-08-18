@@ -42,6 +42,8 @@ Example:
 				Days:           days,
 				RestoreMode:    mode,
 			},
+			Config:    &config,
+			Param:     &param,
 			ErrOutput: &util.ErrOutput{},
 			Command:   util.CommandRestore,
 		}
@@ -65,7 +67,13 @@ Example:
 		}
 
 		if recursive {
-			err = util.RestoreObjects(c, cosUrl, fo)
+			var bucketType string
+			// 获取桶类型
+			bucketType, err = util.GetBucketType(c, fo.Param, fo.Config, bucketName)
+			if err != nil {
+				return err
+			}
+			err = util.RestoreObjects(c, cosUrl, fo, bucketType)
 		} else {
 			_, err = util.TryRestoreObject(c, bucketName, cosUrl.(*util.CosUrl).Object, days, mode)
 		}

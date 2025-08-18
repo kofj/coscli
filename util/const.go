@@ -10,6 +10,9 @@ const (
 	MAZStandardIA         = "MAZ_STANDARD_IA"
 	MAZIntelligentTiering = "MAZ_INTELLIGENT_TIERING"
 	MAZArchive            = "MAZ_ARCHIVE"
+
+	StorageTierArchive     = "ARCHIVE_ACCESS"
+	StorageTierDeepArchive = "DEEP_ARCHIEVE_ACCESS"
 )
 
 const (
@@ -26,14 +29,14 @@ const (
 )
 
 const (
-	Version             string = "v1.0.6"
+	Version             string = "v1.0.7"
 	Package             string = "coscli"
 	SchemePrefix        string = "cos://"
 	CosSeparator        string = "/"
 	IncludePrompt              = "--include"
 	ExcludePrompt              = "--exclude"
-	ChannelSize         int    = 1000
-	MaxSyncNumbers             = 1000000
+	ChannelSize         int    = 100000
+	MaxSyncNumbers             = 5000000
 	MaxDeleteBatchCount int    = 1000
 	SnapshotConnector          = "==>"
 	OfsMaxRenderNum     int    = 100
@@ -54,4 +57,14 @@ const (
 const (
 	VersionStatusSuspended = "Suspended"
 	VersionStatusEnabled   = "Enabled"
+)
+
+const (
+	BucketTypeCos = "COS"
+	BucketTypeOfs = "OFS"
+)
+
+const (
+	TypeSrc  = "src"
+	TypeDest = "dest"
 )

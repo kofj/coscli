@@ -1,5 +1,7 @@
 package util
 
+// FindBucket searches for a bucket by name or alias in the given config and returns it along with its index.
+// If not found, it returns a temporary bucket with the specified name and -1 as the index.
 func FindBucket(config *Config, bucketName string) (Bucket, int, error) {
 	for i, b := range config.Buckets {
 		if b.Alias == bucketName {

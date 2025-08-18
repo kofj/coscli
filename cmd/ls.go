@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"coscli/util"
 	"fmt"
 	"github.com/spf13/cobra"
@@ -69,12 +68,14 @@ Example:
 			}
 
 			_, filters := util.GetFilter(include, exclude)
-			// 根据s.Header判断是否是融合桶或者普通桶
-			s, err := c.Bucket.Head(context.Background())
+
+			// 获取桶类型
+			bucketType, err := util.GetBucketType(c, &param, &config, bucketName)
 			if err != nil {
 				return err
 			}
-			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+
+			if bucketType == util.BucketTypeOfs {
 				if allVersions {
 					return fmt.Errorf("the OFS bucket does not support listing multiple versions")
 				} else {

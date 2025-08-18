@@ -71,6 +71,46 @@ func TestSyncCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
+			Convey("上传大文件 按修改时间跳过", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"sync", localFileName, cosFileName, "-r", "--update"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("上传大文件 存在同名即跳过", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"sync", localFileName, cosFileName, "-r", "--ignore-existing"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("SSE-COS加密", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"sync", localFileName, cosFileName, "-r", "--encryption-type", "SSE-COS"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("SSE-C加密", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"sync", localFileName, cosFileName, "-r", "--encryption-type", "SSE-C"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
 		})
 		Convey("Copy", func() {
 			Convey("桶内拷贝单个文件", func() {
@@ -133,6 +173,26 @@ func TestSyncCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
+			Convey("跨桶拷贝大文件 按修改时间跳过", func() {
+				clearCmd()
+				cmd := rootCmd
+				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
+				args := []string{"sync", srcPath, dstPath, "-r", "--update"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("跨桶拷贝大文件 存在即跳过", func() {
+				clearCmd()
+				cmd := rootCmd
+				srcPath := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				dstPath := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
+				args := []string{"sync", srcPath, dstPath, "-r", "--ignore-existing"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
 		})
 		Convey("Download", func() {
 			Convey("下载单个小文件", func() {
@@ -175,8 +235,68 @@ func TestSyncCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
+			Convey("下载大文件 按修改时间跳过", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/download/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
+				args := []string{"sync", cosFileName, localFileName, "-r", "--update"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("下载大文件 存在同名即跳过", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/download/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias2, "multi-copy-big")
+				args := []string{"sync", cosFileName, localFileName, "-r", "--ignore-existing"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
 		})
 		Convey("fail", func() {
+			Convey("encryptionType非法", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"sync", localFileName, cosFileName, "-r", "--encryption-type", "SSE-C123"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("retry-num > 100", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"sync", localFileName, cosFileName, "-r", "--retry-num", "1000"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("err-retry-num > 100", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"sync", localFileName, cosFileName, "-r", "--err-retry-num", "1000"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+			Convey("encode tag error", func() {
+				clearCmd()
+				cmd := rootCmd
+				localFileName := fmt.Sprintf("%s/big-file", testDir)
+				cosFileName := fmt.Sprintf("cos://%s/%s", testAlias1, "multi-big")
+				args := []string{"sync", localFileName, cosFileName, "-r", "--tag", "tag1"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
 			Convey("Not enough argument", func() {
 				clearCmd()
 				cmd := rootCmd

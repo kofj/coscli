@@ -38,7 +38,13 @@ Example:
 			return err
 		}
 
-		err = util.LsAndDuObjects(c, cosUrl, filters)
+		// 获取桶类型
+		bucketType, err := util.GetBucketType(c, &param, &config, bucketName)
+		if err != nil {
+			return err
+		}
+
+		err = util.LsAndDuObjects(c, cosUrl, filters, bucketType)
 		return err
 	},
 }

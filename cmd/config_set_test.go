@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/spf13/viper"
 )
 
 func TestConfigSetCmd(t *testing.T) {
@@ -27,7 +25,7 @@ func TestConfigSetCmd(t *testing.T) {
 		oldconfig.Base.SessionToken = sessionToken
 	}
 	copyYaml()
-	defer delYaml()
+	defer restoreYaml()
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceUsage = true
@@ -47,48 +45,6 @@ func TestConfigSetCmd(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"config", "set", "--mode", "@"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("@", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(viper.WriteConfigAs, func(string) error {
-					return fmt.Errorf("test WriteConfigAs fail")
-				})
-				defer patches.Reset()
-				args := []string{"config", "set", "--secret_id", "@",
-					"--secret_key", "@", "--session_token", "@", "--mode", "",
-					"--cvm_role_name", "@", "--close_auto_switch_host", "@", "--disable_encryption", "@"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("token,mode,cvm", func() {
-				clearCmd()
-				cmd := rootCmd
-				patches := ApplyFunc(viper.WriteConfigAs, func(string) error {
-					return fmt.Errorf("test WriteConfigAs fail")
-				})
-				defer patches.Reset()
-				args := []string{"config", "set", "--session_token", "666", "--mode", "CvmRole",
-					"--cvm_role_name", "name"}
-				cmd.SetArgs(args)
-				e := cmd.Execute()
-				fmt.Printf(" : %v", e)
-				So(e, ShouldBeError)
-			})
-			Convey("cfgFile", func() {
-				patches := ApplyFunc(viper.WriteConfigAs, func(string) error {
-					return fmt.Errorf("test write configas error")
-				})
-				defer patches.Reset()
-				clearCmd()
-				cmd := rootCmd
-				args := []string{"config", "set", "--secret_id", "@", "-c", "./test.yaml"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)

@@ -43,6 +43,7 @@ func init() {
 	signurlCmd.Flags().IntP("time", "t", 10000, "Set the validity time of the signature(Default 10000)")
 }
 
+// GetSignedURL 生成签名url
 func GetSignedURL(path string, t int) error {
 	bucketName, cosPath := util.ParsePath(path)
 	c, err := util.NewClient(&config, &param, bucketName)

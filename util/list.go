@@ -15,6 +15,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
+// UrlDecodeCosPattern decodes the key of each object in the input slice and returns the modified slice.
 func UrlDecodeCosPattern(objects []cos.Object) []cos.Object {
 	res := make([]cos.Object, 0)
 	for _, o := range objects {
@@ -24,6 +25,16 @@ func UrlDecodeCosPattern(objects []cos.Object) []cos.Object {
 	return res
 }
 
+// MatchCosPattern matches the pattern against the keys of the given objects.
+// It returns a slice of objects whose keys match the pattern.
+//
+// Parameters:
+//   - objects: A slice of cos.Object objects.
+//   - pattern: The pattern to match against the keys.
+//   - include: A boolean indicating whether to include matching keys or not.
+//
+// Returns:
+//   A slice of cos.Object objects whose keys match the pattern.
 func MatchCosPattern(objects []cos.Object, pattern string, include bool) []cos.Object {
 	res := make([]cos.Object, 0)
 	for _, o := range objects {
@@ -38,6 +49,7 @@ func MatchCosPattern(objects []cos.Object, pattern string, include bool) []cos.O
 	return res
 }
 
+// MatchUploadPattern 匹配上传文件名
 func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []UploadInfo {
 	res := make([]UploadInfo, 0)
 	for _, u := range uploads {
@@ -50,51 +62,6 @@ func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []Up
 		}
 	}
 	return res
-}
-
-func GetObjectsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string, retryCount ...int) (objects []cos.Object,
-	commonPrefixes []string, err error) {
-
-	opt := &cos.BucketGetOptions{
-		Prefix:       prefix,
-		Delimiter:    "",
-		EncodingType: "url",
-		Marker:       "",
-		MaxKeys:      limit,
-	}
-
-	isTruncated := true
-	marker := ""
-	for isTruncated {
-		opt.Marker = marker
-
-		res, err := tryGetObjects(c, opt)
-		if err != nil {
-			return objects, commonPrefixes, err
-		}
-
-		objects = append(objects, res.Contents...)
-		commonPrefixes = res.CommonPrefixes
-
-		if limit > 0 {
-			isTruncated = false
-		} else {
-			isTruncated = res.IsTruncated
-			marker, _ = url.QueryUnescape(res.NextMarker)
-		}
-	}
-
-	// 对key进行urlDecode解码
-	objects = UrlDecodeCosPattern(objects)
-
-	if len(include) > 0 {
-		objects = MatchCosPattern(objects, include, true)
-	}
-	if len(exclude) > 0 {
-		objects = MatchCosPattern(objects, exclude, false)
-	}
-
-	return objects, commonPrefixes, nil
 }
 
 // get objects限频重试(最多重试10次，每次重试间隔1-10s随机)
@@ -192,6 +159,15 @@ func tryGetParts(c *cos.Client, prefix, uploadId string, opt *cos.ObjectListPart
 
 // =====new
 
+// ListObjects lists objects in the COS bucket with the specified URL.
+// It takes the following parameters:
+// - c: *cos.Client, the COS client instance.
+// - cosUrl: StorageUrl, the COS bucket URL.
+// - limit: int, the maximum number of objects to list.
+// - recursive: bool, whether to list objects recursively.
+// - filters: []FilterOptionType, the list of filters to apply.
+//
+// It returns an error if any operation fails.
 func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) error {
 	var err error
 	var objects []cos.Object
@@ -257,6 +233,13 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 	return nil
 }
 
+// ListObjectVersions lists the versions of an object in the COS bucket.
+//
+// c: *cos.Client - the COS client to use.
+// cosUrl: StorageUrl - the URL of the COS bucket.
+// limit: int - the maximum number of versions to return.
+// recursive: bool - whether to recursively list versions in subdirectories.
+// filters: []FilterOptionType - the filter options to apply.
 func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) error {
 	var err error
 	var versions []cos.ListVersionsResultVersion
@@ -337,6 +320,15 @@ func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive b
 	return nil
 }
 
+// ListOfsObjects lists objects in the specified COS bucket with the given parameters.
+//
+// c: *cos.Client, the COS client to use.
+// cosUrl: StorageUrl, the COS URL of the bucket.
+// limit: int, the maximum number of objects to list.
+// recursive: bool, whether to list objects recursively.
+// filters: []FilterOptionType, the filters to apply.
+//
+// Returns an error if any operation fails.
 func ListOfsObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, filters []FilterOptionType) error {
 	lsCounter := &LsCounter{}
 	prefix := cosUrl.(*CosUrl).Object
@@ -435,6 +427,9 @@ func tableRender(lsCounter *LsCounter) {
 	}
 }
 
+// ListBuckets lists all buckets for the given cos.Client with a limit on the number of buckets returned.
+// c: A pointer to the cos.Client object.
+// limit: The maximum number of buckets to return.
 func ListBuckets(c *cos.Client, limit int) error {
 	var buckets []cos.Bucket
 	marker := ""

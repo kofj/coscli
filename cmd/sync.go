@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
 	"os"
+	"strings"
 	"time"
 
 	"coscli/util"
@@ -50,6 +50,8 @@ Example:
 		routines, _ := cmd.Flags().GetInt("routines")
 		failOutput, _ := cmd.Flags().GetBool("fail-output")
 		failOutputPath, _ := cmd.Flags().GetString("fail-output-path")
+		processLog, _ := cmd.Flags().GetBool("process-log")
+		processLogPath, _ := cmd.Flags().GetString("process-log-path")
 		onlyCurrentDir, _ := cmd.Flags().GetBool("only-current-dir")
 		disableAllSymlink, _ := cmd.Flags().GetBool("disable-all-symlink")
 		enableSymlinkDir, _ := cmd.Flags().GetBool("enable-symlink-dir")
@@ -59,18 +61,55 @@ Example:
 		longLinksNums, _ := cmd.Flags().GetInt("long-links-nums")
 		backupDir, _ := cmd.Flags().GetString("backup-dir")
 		force, _ := cmd.Flags().GetBool("force")
+		skipDir, _ := cmd.Flags().GetBool("skip-dir")
+		update, _ := cmd.Flags().GetBool("update")
+		ignoreExisting, _ := cmd.Flags().GetBool("ignore-existing")
+		acl, _ := cmd.Flags().GetString("acl")
+		grantRead, _ := cmd.Flags().GetString("grant-read")
+		//grantWrite, _ := cmd.Flags().GetString("grant-write")
+		grantReadAcp, _ := cmd.Flags().GetString("grant-read-acp")
+		grantWriteAcp, _ := cmd.Flags().GetString("grant-write-acp")
+		grantFullControl, _ := cmd.Flags().GetString("grant-full-control")
+		tags, _ := cmd.Flags().GetString("tags")
+		forbidOverwrite, _ := cmd.Flags().GetString("forbid-overwrite")
+		encryptionType, _ := cmd.Flags().GetString("encryption-type")
+		serverSideEncryption, _ := cmd.Flags().GetString("server-side-encryption")
+		sseCustomerAglo, _ := cmd.Flags().GetString("sse-customer-aglo")
+		sseCustomerKey, _ := cmd.Flags().GetString("sse-customer-key")
+		sseCustomerKeyMD5, _ := cmd.Flags().GetString("sse-customer-key-md5")
+
+		// 服务端加密参数验证
+		encryptionType = strings.ToUpper(encryptionType)
+		if encryptionType == "SSE-COS" {
+			// 当 encryptionType 为 SSE-COS 时，将 SSE-C 的参数设为空
+			sseCustomerAglo = ""
+			sseCustomerKey = ""
+			sseCustomerKeyMD5 = ""
+		} else if encryptionType == "SSE-C" {
+			// 当 encryptionType 为 SSE-C 时，将 ServerSideEncryption 参数设为空
+			serverSideEncryption = ""
+		} else if encryptionType == "" {
+			// 当 encryptionType 为空时，将所有加密相关参数设置为空
+			serverSideEncryption = ""
+			sseCustomerAglo = ""
+			sseCustomerKey = ""
+			sseCustomerKeyMD5 = ""
+		} else {
+			// 如果 encryptionType 为其他非法值，报错并退出
+			return fmt.Errorf("error: encryptionType must be either 'SSE-COS' or 'SSE-C'")
+		}
 
 		meta, err := util.MetaStringToHeader(metaString)
 		if err != nil {
 			return fmt.Errorf("Sync invalid meta, reason: " + err.Error())
 		}
 
-		if retryNum < 0 || retryNum > 10 {
-			return fmt.Errorf("retry-num must be between 0 and 10 (inclusive)")
+		if retryNum < 0 || retryNum > 100 {
+			return fmt.Errorf("retry-num must be between 0 and 100 (inclusive)")
 		}
 
-		if errRetryNum < 0 || errRetryNum > 10 {
-			return fmt.Errorf("err-retry-num must be between 0 and 10 (inclusive)")
+		if errRetryNum < 0 || errRetryNum > 100 {
+			return fmt.Errorf("err-retry-num must be between 0 and 100 (inclusive)")
 		}
 
 		if errRetryInterval < 0 || errRetryInterval > 10 {
@@ -91,7 +130,17 @@ Example:
 			return fmt.Errorf("not support cp between local directory")
 		}
 
+		// 解析tags
+		tags, err = util.EncodeTagging(tags)
+		if err != nil {
+			return err
+		}
+
 		_, filters := util.GetFilter(include, exclude)
+
+		if delete && !recursive {
+			return fmt.Errorf("delete can only use with --recursive option")
+		}
 
 		fo := &util.FileOperations{
 			Operation: util.Operation{
@@ -108,6 +157,8 @@ Example:
 				RetryNum:          retryNum,
 				ErrRetryNum:       errRetryNum,
 				ErrRetryInterval:  errRetryInterval,
+				ProcessLog:        processLog,
+				ProcessLogPath:    processLogPath,
 				OnlyCurrentDir:    onlyCurrentDir,
 				DisableAllSymlink: disableAllSymlink,
 				EnableSymlinkDir:  enableSymlinkDir,
@@ -119,13 +170,30 @@ Example:
 				Delete:            delete,
 				BackupDir:         backupDir,
 				Force:             force,
+				SkipDir:           skipDir,
+				Update:            update,
+				IgnoreExisting:    ignoreExisting,
+				Acl:               acl,
+				GrantRead:         grantRead,
+				//GrantWrite:        grantWrite,
+				GrantReadAcp:         grantReadAcp,
+				GrantWriteAcp:        grantWriteAcp,
+				GrantFullControl:     grantFullControl,
+				Tags:                 tags,
+				ForbidOverWrite:      forbidOverwrite,
+				ServerSideEncryption: serverSideEncryption,
+				SSECustomerAglo:      sseCustomerAglo,
+				SSECustomerKey:       sseCustomerKey,
+				SSECustomerKeyMD5:    sseCustomerKeyMD5,
 			},
-			Monitor:   &util.FileProcessMonitor{},
-			Config:    &config,
-			Param:     &param,
-			ErrOutput: &util.ErrOutput{},
-			CpType:    getCommandType(srcUrl, destUrl),
-			Command:   util.CommandSync,
+			Monitor:       &util.FileProcessMonitor{},
+			Config:        &config,
+			Param:         &param,
+			ErrOutput:     &util.ErrOutput{},
+			ProcessLogger: &util.ProcessLogger{},
+			CpType:        getCommandType(srcUrl, destUrl),
+			Command:       util.CommandSync,
+			OutPutDirName: time.Now().Format("20060102_150405"),
 		}
 
 		// 快照db实例化
@@ -162,6 +230,11 @@ Example:
 			if fo.Operation.DisableCrc64 {
 				c.Conf.EnableCRC = false
 			}
+			// 获取桶类型
+			fo.BucketType, err = util.GetBucketType(c, fo.Param, fo.Config, bucketName)
+			if err != nil {
+				return err
+			}
 			// 上传
 			err = util.SyncUpload(c, srcUrl, destUrl, fo)
 			if err != nil {
@@ -192,15 +265,13 @@ Example:
 			if err != nil {
 				return err
 			}
-			// 判断桶是否是ofs桶
-			s, err := c.Bucket.Head(context.Background())
+
+			// 获取桶类型
+			fo.BucketType, err = util.GetBucketType(c, fo.Param, fo.Config, bucketName)
 			if err != nil {
 				return err
 			}
-			// 根据s.Header判断是否是融合桶或者普通桶
-			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
-				fo.BucketType = "OFS"
-			}
+
 			// 是否关闭crc64
 			if fo.Operation.DisableCrc64 {
 				c.Conf.EnableCRC = false
@@ -232,11 +303,10 @@ Example:
 				return err
 			}
 
-			// 判断桶是否是ofs桶
-			s, _ := srcClient.Bucket.Head(context.Background())
-			// 根据s.Header判断是否是融合桶或者普通桶
-			if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
-				fo.BucketType = "OFS"
+			// 获取桶类型
+			fo.BucketType, err = util.GetBucketType(srcClient, fo.Param, fo.Config, srcBucketName)
+			if err != nil {
+				return err
 			}
 
 			// 是否关闭crc64
@@ -258,6 +328,7 @@ Example:
 			return fmt.Errorf("cospath needs to contain cos://")
 		}
 		util.CloseErrorOutputFile(fo)
+		util.CloseProcessLoggerFile(fo)
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
 
@@ -280,7 +351,7 @@ func init() {
 	syncCmd.Flags().String("storage-class", "", "Specifying a storage class")
 	syncCmd.Flags().Float32("rate-limiting", 0, "Upload or download speed limit(MB/s)")
 	syncCmd.Flags().Int64("part-size", 32, "Specifies the block size(MB)")
-	syncCmd.Flags().Int("thread-num", 5, "Specifies the number of concurrent upload or download threads")
+	syncCmd.Flags().Int("thread-num", 0, "Specifies the number of concurrent upload or download threads")
 	syncCmd.Flags().String("meta", "",
 		"Set the meta information of the file, "+
 			"the format is header:value#header:value, the example is Cache-Control:no-cache#Content-Encoding:gzip")
@@ -305,19 +376,37 @@ func init() {
 		"in order to avoid too much snapshot information, when the snapshot information is useless, "+
 		"please clean up your own snapshot-path on your own immediately.")
 	syncCmd.Flags().Bool("delete", false, "Delete any other files in the specified destination path, only keeping the files synced this time. It is recommended to enable version control before using the --delete option to prevent accidental data deletion.")
-	syncCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-10 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
-	syncCmd.Flags().Int("err-retry-num", 0, "Error retry attempts. Specify 1-10 times, or 0 for no retry.")
+	syncCmd.Flags().Int("retry-num", 0, "Rate-limited retry. Specify 1-100 times. When multiple machines concurrently execute download operations on the same COS directory, rate-limited retry can be performed by specifying this parameter.")
+	syncCmd.Flags().Int("err-retry-num", 5, "Error retry attempts. Specify 1-100 times, or 0 for no retry.")
 	syncCmd.Flags().Int("err-retry-interval", 0, "Retry interval (available only when specifying error retry attempts 1-10). Specify an interval of 1-10 seconds, or if not specified or set to 0, a random interval within 1-10 seconds will be used for each retry.")
 	syncCmd.Flags().Int("routines", 3, "Specifies the number of files concurrent upload or download threads")
 	syncCmd.Flags().Bool("fail-output", true, "This option determines whether the error output for failed file uploads or downloads is enabled. If enabled, the error messages for any failed file transfers will be recorded in a file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files will be output to the console.")
 	syncCmd.Flags().String("fail-output-path", "coscli_output", "This option specifies the designated error output folder where the error messages for failed file uploads or downloads will be recorded. By providing a custom folder path, you can control the location and name of the error output folder. If this option is not set, the default error log folder (coscli_output) will be used.")
+	syncCmd.Flags().Bool("process-log", true, "This option determines whether process log recording is enabled. If enabled, information related to file upload or download processes (including error details) will be recorded in a log file within the specified directory (if not specified, the default is coscli_output). If disabled, only the number of error files and basic process information will be output to the console.")
+	syncCmd.Flags().String("process-log-path", "coscli_output", "This option is used to specify a dedicated output folder for process logs. The logs will record information related to file uploads or downloads, including errors and process details. By providing a custom folder path, you can control the location and name of the log output folder. If this option is not set, the default log folder (coscli_output) will be used.")
 	syncCmd.Flags().Bool("only-current-dir", false, "Upload only the files in the current directory, ignoring subdirectories and their contents")
 	syncCmd.Flags().Bool("disable-all-symlink", true, "Ignore all symbolic link subfiles and symbolic link subdirectories when uploading, not uploaded by default")
 	syncCmd.Flags().Bool("enable-symlink-dir", false, "Upload linked subdirectories, not uploaded by default")
 	syncCmd.Flags().Bool("disable-crc64", false, "Disable CRC64 data validation. By default, coscli enables CRC64 validation for data transfer")
-	syncCmd.Flags().Bool("disable-checksum", false, "Disable overall CRC64 checksum, only validate fragments")
+	syncCmd.Flags().Bool("disable-checksum", true, "Disable overall CRC64 checksum, only validate fragments")
 	syncCmd.Flags().Bool("disable-long-links", false, "Disable long links, use short links")
 	syncCmd.Flags().Bool("long-links-nums", false, "The long connection quantity parameter, if 0 or not provided, defaults to the concurrent file count.")
 	syncCmd.Flags().String("backup-dir", "", "Synchronize deleted file backups, used to save the destination-side files that have been deleted but do not exist on the source side.")
 	syncCmd.Flags().Bool("force", false, "Force the operation without prompting for confirmation")
+	syncCmd.Flags().Bool("skip-dir", false, "Skip folders during upload.")
+	syncCmd.Flags().Bool("update", false, "Only when the target file does not exist will the operation be executed, or if the source file's last modified time is later than the target file's.")
+	syncCmd.Flags().Bool("ignore-existing", false, "Only when the target file does not exist will the operation be executed.")
+	syncCmd.Flags().String("acl", "", "Defines the Access Control List (ACL) property of an object. The default value is default.")
+	syncCmd.Flags().String("grant-read", "", "Grants the grantee permission to read the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
+	//syncCmd.Flags().String("grant-write", "", "Grants the grantee permission to write the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id='100000000001',id=\"100000000002\".")
+	syncCmd.Flags().String("grant-read-acp", "", "Grants the grantee permission to read the object's Access Control List (ACL). The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
+	syncCmd.Flags().String("grant-write-acp", "", "Grants the grantee permission to write the object's Access Control List (ACL). The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
+	syncCmd.Flags().String("grant-full-control", "", "Grants the grantee full permissions to operate on the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
+	syncCmd.Flags().String("tags", "", "The set of tags for the object, with a maximum of 10 tags (e.g., Key1=Value1 & Key2=Value2). The Key and Value in the tag set must be URL-encoded beforehand.")
+	syncCmd.Flags().String("forbid-overwrite", "false", "For storage buckets without versioning enabled, if not specified or set to false, uploading will overwrite objects with the same name by default; if set to true, overwriting objects with the same name is prohibited.")
+	syncCmd.Flags().String("encryption-type", "", "Server-side encryption methods, optional values: SSE-COS and SSE-C.")
+	syncCmd.Flags().String("server-side-encryption", "", "SSE-COS mode supports two encryption algorithms: AES256 and SM4.")
+	syncCmd.Flags().String("sse-customer-aglo", "", "SSE-C encryption refers to server-side encryption with customer-provided keys. The encryption keys are provided by the user, and when uploading objects, COS will use the user-provided encryption keys to encrypt the user's data. The SSE-C mode supports two encryption algorithms: AES256 and SM4.")
+	syncCmd.Flags().String("sse-customer-key", "", "The user-provided key should be a 32-byte string, supporting combinations of numbers, letters, and special characters. Chinese characters are not supported.")
+	syncCmd.Flags().String("sse-customer-key-md5", "", "The MD5 value of the user-provided key")
 }
