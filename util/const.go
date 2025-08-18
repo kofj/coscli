@@ -35,7 +35,7 @@ const (
 	CosSeparator        string = "/"
 	IncludePrompt              = "--include"
 	ExcludePrompt              = "--exclude"
-	ChannelSize         int    = 100000
+	ChannelSize         int    = 10000
 	MaxSyncNumbers             = 5000000
 	MaxDeleteBatchCount int    = 1000
 	SnapshotConnector          = "==>"
