@@ -100,10 +100,10 @@ func printEncryptionDetails(rule *cos.BucketEncryptionConfiguration) {
 		fmt.Println(" - Type: Server-Side Encryption with COS-Managed Keys (SSE-COS)")
 		fmt.Println(" - Description: Tencent Cloud COS manages encryption keys")
 		fmt.Println(" - Security: AES-256 encryption algorithm")
-	case "AM4":
+	case "SM4":
 		fmt.Println(" - Type: Server-Side Encryption with COS-Managed Keys (SSE-COS)")
 		fmt.Println(" - Description: Tencent Cloud COS manages encryption keys")
-		fmt.Println(" - Security: AM4 encryption algorithm")
+		fmt.Println(" - Security: SM4 encryption algorithm")
 	case "KMS":
 		fmt.Println(" - Type: Server-Side Encryption with KMS-Managed Keys (SSE-KMS)")
 		fmt.Println(" - Description: Tencent Cloud Key Management System (KMS) manages encryption keys")
