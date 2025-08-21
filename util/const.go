@@ -70,3 +70,8 @@ const (
 	TypeSrc  = "src"
 	TypeDest = "dest"
 )
+
+const (
+	ContentTypePolicy    = "policy"
+	ContentTypeInventory = "inventory"
+)

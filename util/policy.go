@@ -17,7 +17,7 @@ func PutBucketPolicy(c *cos.Client, policy string) error {
 		return err
 	}
 	var opt cos.BucketPutPolicyOptions
-	err = ParseContent(configurationContent, &opt)
+	err = ParseContent(configurationContent, &opt, ContentTypePolicy)
 	if err != nil {
 		return err
 	}
