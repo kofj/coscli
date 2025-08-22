@@ -239,7 +239,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 					XCosMetaXXX:              fo.Operation.Meta.XCosMetaXXX,
 					XCosStorageClass:         fo.Operation.StorageClass,
 					XCosServerSideEncryption: fo.Operation.ServerSideEncryption,
-					XCosSSECustomerAglo:      fo.Operation.SSECustomerAglo,
+					XCosSSECustomerAglo:      fo.Operation.SSECustomerAlgo,
 					XCosSSECustomerKey:       fo.Operation.SSECustomerKey,
 					XCosSSECustomerKeyMD5:    fo.Operation.SSECustomerKeyMD5,
 					XOptionHeader:            &http.Header{},

@@ -74,7 +74,7 @@ Example:
 		forbidOverwrite, _ := cmd.Flags().GetString("forbid-overwrite")
 		encryptionType, _ := cmd.Flags().GetString("encryption-type")
 		serverSideEncryption, _ := cmd.Flags().GetString("server-side-encryption")
-		sseCustomerAglo, _ := cmd.Flags().GetString("sse-customer-aglo")
+		sseCustomerAlgo, _ := cmd.Flags().GetString("sse-customer-algo")
 		sseCustomerKey, _ := cmd.Flags().GetString("sse-customer-key")
 		sseCustomerKeyMD5, _ := cmd.Flags().GetString("sse-customer-key-md5")
 		checkPoint, _ := cmd.Flags().GetBool("check-point")
@@ -83,7 +83,7 @@ Example:
 		encryptionType = strings.ToUpper(encryptionType)
 		if encryptionType == "SSE-COS" {
 			// 当 encryptionType 为 SSE-COS 时，将 SSE-C 的参数设为空
-			sseCustomerAglo = ""
+			sseCustomerAlgo = ""
 			sseCustomerKey = ""
 			sseCustomerKeyMD5 = ""
 		} else if encryptionType == "SSE-C" {
@@ -92,7 +92,7 @@ Example:
 		} else if encryptionType == "" {
 			// 当 encryptionType 为空时，将所有加密相关参数设置为空
 			serverSideEncryption = ""
-			sseCustomerAglo = ""
+			sseCustomerAlgo = ""
 			sseCustomerKey = ""
 			sseCustomerKeyMD5 = ""
 		} else {
@@ -183,7 +183,7 @@ Example:
 				Tags:                 tags,
 				ForbidOverWrite:      forbidOverwrite,
 				ServerSideEncryption: serverSideEncryption,
-				SSECustomerAglo:      sseCustomerAglo,
+				SSECustomerAlgo:      sseCustomerAlgo,
 				SSECustomerKey:       sseCustomerKey,
 				SSECustomerKeyMD5:    sseCustomerKeyMD5,
 				CheckPoint:           checkPoint,
@@ -408,7 +408,7 @@ func init() {
 	syncCmd.Flags().String("forbid-overwrite", "false", "For storage buckets without versioning enabled, if not specified or set to false, uploading will overwrite objects with the same name by default; if set to true, overwriting objects with the same name is prohibited.")
 	syncCmd.Flags().String("encryption-type", "", "Server-side encryption methods, optional values: SSE-COS and SSE-C.")
 	syncCmd.Flags().String("server-side-encryption", "", "SSE-COS mode supports two encryption algorithms: AES256 and SM4.")
-	syncCmd.Flags().String("sse-customer-aglo", "", "SSE-C encryption refers to server-side encryption with customer-provided keys. The encryption keys are provided by the user, and when uploading objects, COS will use the user-provided encryption keys to encrypt the user's data. The SSE-C mode supports two encryption algorithms: AES256 and SM4.")
+	syncCmd.Flags().String("sse-customer-algo", "", "SSE-C encryption refers to server-side encryption with customer-provided keys. The encryption keys are provided by the user, and when uploading objects, COS will use the user-provided encryption keys to encrypt the user's data. The SSE-C mode supports two encryption algorithms: AES256 and SM4.")
 	syncCmd.Flags().String("sse-customer-key", "", "The user-provided key should be a 32-byte string, supporting combinations of numbers, letters, and special characters. Chinese characters are not supported.")
 	syncCmd.Flags().String("sse-customer-key-md5", "", "The MD5 value of the user-provided key")
 	syncCmd.Flags().Bool("check-point", true, "Whether to enable breakpoint resume, default is true, enable breakpoint resume.")

@@ -148,7 +148,7 @@ type Operation struct {
 	Tags                 string
 	ForbidOverWrite      string
 	ServerSideEncryption string
-	SSECustomerAglo      string
+	SSECustomerAlgo      string
 	SSECustomerKey       string
 	SSECustomerKeyMD5    string
 }
