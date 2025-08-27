@@ -66,7 +66,7 @@ Example:
 		grantWriteAcp, _ := cmd.Flags().GetString("grant-write-acp")
 		grantFullControl, _ := cmd.Flags().GetString("grant-full-control")
 		tags, _ := cmd.Flags().GetString("tags")
-		forbidOverwrite, _ := cmd.Flags().GetString("forbid-overwrite")
+		forbidOverwrite, _ := cmd.Flags().GetBool("forbid-overwrite")
 		encryptionType, _ := cmd.Flags().GetString("encryption-type")
 		serverSideEncryption, _ := cmd.Flags().GetString("server-side-encryption")
 		sseCustomerAlgo, _ := cmd.Flags().GetString("sse-customer-algo")

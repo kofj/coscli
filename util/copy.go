@@ -261,8 +261,8 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	if fo.Operation.Tags != "" {
 		opt.OptCopy.XOptionHeader.Add("x-cos-tagging", fo.Operation.Tags)
 	}
-	if fo.Operation.ForbidOverWrite != "" {
-		opt.OptCopy.XOptionHeader.Add("x-cos-forbid-overwrite", fo.Operation.ForbidOverWrite)
+	if fo.Operation.ForbidOverWrite {
+		opt.OptCopy.XOptionHeader.Add("x-cos-forbid-overwrite", "true")
 	}
 
 	if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||

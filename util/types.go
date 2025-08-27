@@ -146,7 +146,7 @@ type Operation struct {
 	GrantWriteAcp        string
 	GrantFullControl     string
 	Tags                 string
-	ForbidOverWrite      string
+	ForbidOverWrite      bool
 	ServerSideEncryption string
 	SSECustomerAlgo      string
 	SSECustomerKey       string

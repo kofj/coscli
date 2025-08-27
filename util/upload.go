@@ -255,8 +255,8 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		if fo.Operation.Tags != "" {
 			opt.OptIni.XOptionHeader.Add("x-cos-tagging", fo.Operation.Tags)
 		}
-		if fo.Operation.ForbidOverWrite != "" {
-			opt.OptIni.XOptionHeader.Add("x-cos-forbid-overwrite", fo.Operation.ForbidOverWrite)
+		if fo.Operation.ForbidOverWrite {
+			opt.OptIni.XOptionHeader.Add("x-cos-forbid-overwrite", "true")
 		}
 
 		counter := &Counter{TransferSize: 0}
