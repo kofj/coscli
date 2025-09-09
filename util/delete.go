@@ -110,7 +110,7 @@ func getDeleteKeys(srcClient, destClient *cos.Client, srcUrl StorageUrl, destUrl
 
 	// 取完列表后终止进度打印，并输出最终结果
 	progressCancel()
-	fmt.Printf("\rTotal source num: %d,destination num: %d", fo.SyncDeleteObjectInfo.srcCount, fo.SyncDeleteObjectInfo.destCount)
+	fmt.Printf("\r\033[KTotal source num: %d,destination num: %d", fo.SyncDeleteObjectInfo.srcCount, fo.SyncDeleteObjectInfo.destCount)
 
 	delKeys := make(map[string]commonInfoType)
 	for k, v := range destKeys {

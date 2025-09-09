@@ -36,6 +36,6 @@ func GetBucketType(c *cos.Client, param *Param, config *Config, bucketName strin
 			}
 		}
 	}
-	logger.Info("桶类型", bucketType)
+	//logger.Info("桶类型", bucketType)
 	return bucketType, nil
 }

@@ -109,6 +109,7 @@ type Operation struct {
 	StorageClass         string
 	RateLimiting         float32
 	PartSize             int64
+	CheckPoint           bool
 	ThreadNum            int
 	Routines             int
 	FailOutput           bool
@@ -145,9 +146,9 @@ type Operation struct {
 	GrantWriteAcp        string
 	GrantFullControl     string
 	Tags                 string
-	ForbidOverWrite      string
+	ForbidOverWrite      bool
 	ServerSideEncryption string
-	SSECustomerAglo      string
+	SSECustomerAlgo      string
 	SSECustomerKey       string
 	SSECustomerKeyMD5    string
 }

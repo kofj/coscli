@@ -239,7 +239,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 					XCosMetaXXX:              fo.Operation.Meta.XCosMetaXXX,
 					XCosStorageClass:         fo.Operation.StorageClass,
 					XCosServerSideEncryption: fo.Operation.ServerSideEncryption,
-					XCosSSECustomerAglo:      fo.Operation.SSECustomerAglo,
+					XCosSSECustomerAglo:      fo.Operation.SSECustomerAlgo,
 					XCosSSECustomerKey:       fo.Operation.SSECustomerKey,
 					XCosSSECustomerKeyMD5:    fo.Operation.SSECustomerKeyMD5,
 					XOptionHeader:            &http.Header{},
@@ -248,15 +248,15 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 			},
 			PartSize:        fo.Operation.PartSize,
 			ThreadPoolSize:  threadNum,
-			CheckPoint:      true,
+			CheckPoint:      fo.Operation.CheckPoint,
 			DisableChecksum: fo.Operation.DisableChecksum,
 		}
 
 		if fo.Operation.Tags != "" {
 			opt.OptIni.XOptionHeader.Add("x-cos-tagging", fo.Operation.Tags)
 		}
-		if fo.Operation.ForbidOverWrite != "" {
-			opt.OptIni.XOptionHeader.Add("x-cos-forbid-overwrite", fo.Operation.ForbidOverWrite)
+		if fo.Operation.ForbidOverWrite {
+			opt.OptIni.XOptionHeader.Add("x-cos-forbid-overwrite", "true")
 		}
 
 		counter := &Counter{TransferSize: 0}

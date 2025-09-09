@@ -66,18 +66,19 @@ Example:
 		grantWriteAcp, _ := cmd.Flags().GetString("grant-write-acp")
 		grantFullControl, _ := cmd.Flags().GetString("grant-full-control")
 		tags, _ := cmd.Flags().GetString("tags")
-		forbidOverwrite, _ := cmd.Flags().GetString("forbid-overwrite")
+		forbidOverwrite, _ := cmd.Flags().GetBool("forbid-overwrite")
 		encryptionType, _ := cmd.Flags().GetString("encryption-type")
 		serverSideEncryption, _ := cmd.Flags().GetString("server-side-encryption")
-		sseCustomerAglo, _ := cmd.Flags().GetString("sse-customer-aglo")
+		sseCustomerAlgo, _ := cmd.Flags().GetString("sse-customer-algo")
 		sseCustomerKey, _ := cmd.Flags().GetString("sse-customer-key")
 		sseCustomerKeyMD5, _ := cmd.Flags().GetString("sse-customer-key-md5")
+		checkPoint, _ := cmd.Flags().GetBool("check-point")
 
 		// 服务端加密参数验证
 		encryptionType = strings.ToUpper(encryptionType)
 		if encryptionType == "SSE-COS" {
 			// 当 encryptionType 为 SSE-COS 时，将 SSE-C 的参数设为空
-			sseCustomerAglo = ""
+			sseCustomerAlgo = ""
 			sseCustomerKey = ""
 			sseCustomerKeyMD5 = ""
 		} else if encryptionType == "SSE-C" {
@@ -86,7 +87,7 @@ Example:
 		} else if encryptionType == "" {
 			// 当 encryptionType 为空时，将所有加密相关参数设置为空
 			serverSideEncryption = ""
-			sseCustomerAglo = ""
+			sseCustomerAlgo = ""
 			sseCustomerKey = ""
 			sseCustomerKeyMD5 = ""
 		} else {
@@ -173,9 +174,10 @@ Example:
 				Tags:                 tags,
 				ForbidOverWrite:      forbidOverwrite,
 				ServerSideEncryption: serverSideEncryption,
-				SSECustomerAglo:      sseCustomerAglo,
+				SSECustomerAlgo:      sseCustomerAlgo,
 				SSECustomerKey:       sseCustomerKey,
 				SSECustomerKeyMD5:    sseCustomerKeyMD5,
+				CheckPoint:           checkPoint,
 			},
 			Monitor:       &util.FileProcessMonitor{},
 			Config:        &config,
@@ -384,12 +386,13 @@ func init() {
 	cpCmd.Flags().String("grant-write-acp", "", "Grants the grantee permission to write the object's Access Control List (ACL). The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
 	cpCmd.Flags().String("grant-full-control", "", "Grants the grantee full permissions to operate on the object. The format is id=\"[OwnerUin]\", for example, id=\"100000000001\". Multiple grantees can be specified using commas (,), for example, id=\"100000000001\",id=\"100000000002\".")
 	cpCmd.Flags().String("tags", "", "The set of tags for the object, with a maximum of 10 tags (e.g., Key1=Value1 & Key2=Value2). The Key and Value in the tag set must be URL-encoded beforehand.")
-	cpCmd.Flags().String("forbid-overwrite", "false", "For storage buckets without versioning enabled, if not specified or set to false, uploading will overwrite objects with the same name by default; if set to true, overwriting objects with the same name is prohibited.")
+	cpCmd.Flags().Bool("forbid-overwrite", false, "For storage buckets without versioning enabled, if not specified or set to false, uploading will overwrite objects with the same name by default; if set to true, overwriting objects with the same name is prohibited.")
 	cpCmd.Flags().String("encryption-type", "", "Server-side encryption methods, optional values: SSE-COS and SSE-C.")
 	cpCmd.Flags().String("server-side-encryption", "", "SSE-COS mode supports two encryption algorithms: AES256 and SM4.")
-	cpCmd.Flags().String("sse-customer-aglo", "", "SSE-C encryption refers to server-side encryption with customer-provided keys. The encryption keys are provided by the user, and when uploading objects, COS will use the user-provided encryption keys to encrypt the user's data. The SSE-C mode supports two encryption algorithms: AES256 and SM4.")
+	cpCmd.Flags().String("sse-customer-algo", "", "SSE-C encryption refers to server-side encryption with customer-provided keys. The encryption keys are provided by the user, and when uploading objects, COS will use the user-provided encryption keys to encrypt the user's data. The SSE-C mode supports two encryption algorithms: AES256 and SM4.")
 	cpCmd.Flags().String("sse-customer-key", "", "The user-provided key should be a 32-byte string, supporting combinations of numbers, letters, and special characters. Chinese characters are not supported.")
 	cpCmd.Flags().String("sse-customer-key-md5", "", "The MD5 value of the user-provided key")
+	cpCmd.Flags().Bool("check-point", true, "Whether to enable breakpoint resume, default is true, enable breakpoint resume.")
 }
 
 func getCommandType(srcUrl util.StorageUrl, destUrl util.StorageUrl) util.CpType {

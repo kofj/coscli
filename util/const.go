@@ -10,6 +10,8 @@ const (
 	MAZStandardIA         = "MAZ_STANDARD_IA"
 	MAZIntelligentTiering = "MAZ_INTELLIGENT_TIERING"
 	MAZArchive            = "MAZ_ARCHIVE"
+	Cold                  = "COLD"
+	MAZCold               = "MAZ_COLD"
 
 	StorageTierArchive     = "ARCHIVE_ACCESS"
 	StorageTierDeepArchive = "DEEP_ARCHIEVE_ACCESS"
@@ -67,4 +69,9 @@ const (
 const (
 	TypeSrc  = "src"
 	TypeDest = "dest"
+)
+
+const (
+	ContentTypePolicy    = "policy"
+	ContentTypeInventory = "inventory"
 )

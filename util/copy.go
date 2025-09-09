@@ -240,7 +240,7 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 				XCosStorageClass:         fo.Operation.StorageClass,
 				XCosMetaXXX:              fo.Operation.Meta.XCosMetaXXX,
 				XCosServerSideEncryption: fo.Operation.ServerSideEncryption,
-				XCosSSECustomerAglo:      fo.Operation.SSECustomerAglo,
+				XCosSSECustomerAglo:      fo.Operation.SSECustomerAlgo,
 				XCosSSECustomerKey:       fo.Operation.SSECustomerKey,
 				XCosSSECustomerKeyMD5:    fo.Operation.SSECustomerKeyMD5,
 				XOptionHeader:            &http.Header{},
@@ -261,8 +261,8 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	if fo.Operation.Tags != "" {
 		opt.OptCopy.XOptionHeader.Add("x-cos-tagging", fo.Operation.Tags)
 	}
-	if fo.Operation.ForbidOverWrite != "" {
-		opt.OptCopy.XOptionHeader.Add("x-cos-forbid-overwrite", fo.Operation.ForbidOverWrite)
+	if fo.Operation.ForbidOverWrite {
+		opt.OptCopy.XOptionHeader.Add("x-cos-forbid-overwrite", "true")
 	}
 
 	if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||

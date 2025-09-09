@@ -66,24 +66,33 @@ func readFile(filePath string) ([]byte, error) {
 }
 
 // ParseContent todo
-func ParseContent[T any](content []byte, target *T) error {
+func ParseContent[T any](content []byte, target *T, contentType string) error {
 	// 检查内容是否为空
 	if len(content) == 0 {
 		return fmt.Errorf("content is empty")
 	}
 
-	// 尝试解析为JSON
-	if err := json.Unmarshal(content, &target); err == nil {
-		logger.Info("Detected JSON format")
-		return nil
+	if contentType == ContentTypePolicy {
+		// 尝试解析为JSON
+		if err := json.Unmarshal(content, &target); err == nil {
+			logger.Info("Detected JSON format")
+			return nil
+		}
+		// 无法识别格式
+		return fmt.Errorf("unrecognized configuration format, must be JSON")
+	} else {
+		// 尝试解析为JSON
+		if err := json.Unmarshal(content, &target); err == nil {
+			logger.Info("Detected JSON format")
+			return nil
+		}
+		// 尝试解析为XML
+		if err := xml.Unmarshal(content, &target); err == nil {
+			logger.Info("Detected XML format")
+			return nil
+		}
+		// 无法识别格式
+		return fmt.Errorf("unrecognized configuration format, must be JSON or XML")
 	}
 
-	// 尝试解析为XML
-	if err := xml.Unmarshal(content, &target); err == nil {
-		logger.Info("Detected XML format")
-		return nil
-	}
-
-	// 无法识别格式
-	return fmt.Errorf("unrecognized configuration format, must be JSON or XML")
 }

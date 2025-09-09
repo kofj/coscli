@@ -18,7 +18,7 @@ func PutBucketInventory(c *cos.Client, id, configuration string) error {
 		return err
 	}
 	var opt cos.BucketPutInventoryOptions
-	err = ParseContent(configurationContent, &opt)
+	err = ParseContent(configurationContent, &opt, ContentTypeInventory)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func PostBucketInventory(c *cos.Client, id, configuration string) error {
 		return err
 	}
 	var opt cos.BucketPostInventoryOptions
-	err = ParseContent(configurationContent, &opt)
+	err = ParseContent(configurationContent, &opt, ContentTypeInventory)
 	if err != nil {
 		return err
 	}
