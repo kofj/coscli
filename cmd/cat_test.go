@@ -269,7 +269,7 @@ func TestCatCmd(t *testing.T) {
 					Convey("retry-301", func() {
 						clearCmd()
 						cmd := rootCmd
-						args := []string{"cat", "cos://cos-sdk-err-retry-1253960454/301", "-e", "cos.ap-chengdu.myqcloud.com", "--close_auto_switch_host", "false", "-p", "http"}
+						args := []string{"cat", "cos://cos-sdk-err-retry-1253960454/301", "-e", "cos.ap-chengdu.myqcloud.com", "--close_auto_switch_host", "true", "-p", "http"}
 						cmd.SetArgs(args)
 						e := cmd.Execute()
 						fmt.Printf(" : %v", e)
@@ -287,7 +287,7 @@ func TestCatCmd(t *testing.T) {
 					Convey("retry-302", func() {
 						clearCmd()
 						cmd := rootCmd
-						args := []string{"cat", "cos://cos-sdk-err-retry-1253960454/302", "-e", "cos.ap-chengdu.myqcloud.com", "--close_auto_switch_host", "false", "-p", "http"}
+						args := []string{"cat", "cos://cos-sdk-err-retry-1253960454/302", "-e", "cos.ap-chengdu.myqcloud.com", "--close_auto_switch_host", "true", "-p", "http"}
 						cmd.SetArgs(args)
 						e := cmd.Execute()
 						fmt.Printf(" : %v", e)
