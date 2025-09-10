@@ -38,6 +38,7 @@ func init() {
 	configSetCmd.Flags().StringP("cvm_role_name", "", "", "Set cvm role name")
 	configSetCmd.Flags().StringP("close_auto_switch_host", "", "", "Close Auto Switch Host")
 	configSetCmd.Flags().StringP("disable_encryption", "", "", "Disable Encryption")
+	configSetCmd.Flags().StringP("disable_auto_fetch_bucket_type", "", "", "Disable Auto Fetch BucketType")
 }
 
 func setConfigItem(cmd *cobra.Command) error {
@@ -49,6 +50,7 @@ func setConfigItem(cmd *cobra.Command) error {
 	cvmRoleName, _ := cmd.Flags().GetString("cvm_role_name")
 	closeAutoSwitchHost, _ := cmd.Flags().GetString("close_auto_switch_host")
 	disableEncryption, _ := cmd.Flags().GetString("disable_encryption")
+	disableAutoFetchBucketType, _ := cmd.Flags().GetString("disable_auto_fetch_bucket_type")
 	if secretID != "" {
 		flag = true
 		if secretID == "@" {
@@ -105,6 +107,15 @@ func setConfigItem(cmd *cobra.Command) error {
 			config.Base.DisableEncryption = ""
 		} else {
 			config.Base.DisableEncryption = disableEncryption
+		}
+	}
+
+	if disableAutoFetchBucketType != "" {
+		flag = true
+		if disableAutoFetchBucketType == "@" {
+			config.Base.DisableAutoFetchBucketType = ""
+		} else {
+			config.Base.DisableAutoFetchBucketType = disableAutoFetchBucketType
 		}
 	}
 

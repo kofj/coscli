@@ -17,6 +17,7 @@ import (
 var cfgFile string
 var initSkip bool
 var logPath string
+var disableLog bool
 var config util.Config
 var param util.Param
 var cmdCnt int //控制某些函数在一个命令中被调用的次数
@@ -31,6 +32,7 @@ var rootCmd = &cobra.Command{
 	Version: util.Version,
 }
 
+// Execute 执行
 func Execute() error {
 	rootCmd.SilenceErrors = true
 	rootCmd.SilenceUsage = true
@@ -49,11 +51,14 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&param.Protocol, "protocol", "p", "", "config protocol")
 	rootCmd.PersistentFlags().BoolVarP(&initSkip, "init-skip", "", false, "skip config init")
 	rootCmd.PersistentFlags().StringVarP(&logPath, "log-path", "", "", "coscli log dir")
+	rootCmd.PersistentFlags().BoolVarP(&disableLog, "disable-log", "", false, "close coscli log")
+	rootCmd.PersistentFlags().StringVarP(&param.CloseAutoSwitchHost, "close_auto_switch_host", "", "", "Close Auto Switch Host")
+	rootCmd.PersistentFlags().StringVarP(&param.BucketType, "bucket-type", "", "", "Specify the bucket type as COS/OFS.")
 }
 
 func initConfig() {
 	// 初始化日志路径
-	clilog.InitLoggerWithDir(logPath)
+	clilog.InitLoggerWithDir(logPath, disableLog)
 
 	home, err := homedir.Dir()
 	cobra.CheckErr(err)

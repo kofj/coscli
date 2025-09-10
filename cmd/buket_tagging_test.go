@@ -4,12 +4,12 @@ import (
 	"context"
 	"coscli/util"
 	"fmt"
-	"reflect"
-	"testing"
-
 	. "github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"reflect"
+	"testing"
+	"time"
 )
 
 func TestBucketTaggingCmd(t *testing.T) {
@@ -33,11 +33,30 @@ func TestBucketTaggingCmd(t *testing.T) {
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
 			})
+			Convey("add", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"bucket-tagging", "--method", "add",
+					fmt.Sprintf("cos://%s", testAlias), "testkey2#testval2"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
 			Convey("get", func() {
+				time.Sleep(time.Second)
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"bucket-tagging", "--method", "get",
 					fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("deleteDes", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"bucket-tagging", "--method", "delete",
+					fmt.Sprintf("cos://%s", testAlias), "testkey2#testval2"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)
@@ -92,6 +111,52 @@ func TestBucketTaggingCmd(t *testing.T) {
 					clearCmd()
 					cmd := rootCmd
 					args := []string{"bucket-tagging", "--method", "put",
+						fmt.Sprintf("cos://%s", testAlias), "qcs:1#testval"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+			})
+			Convey("add", func() {
+				Convey("not enough arguments", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"bucket-tagging", "--method", "add",
+						fmt.Sprintf("cos://%s", testAlias)}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("clinet err", func() {
+					clearCmd()
+					cmd := rootCmd
+					patches := ApplyFunc(util.NewClient, func(config *util.Config, param *util.Param, bucketName string) (client *cos.Client, err error) {
+						return nil, fmt.Errorf("test add client error")
+					})
+					defer patches.Reset()
+					args := []string{"bucket-tagging", "--method", "add",
+						fmt.Sprintf("cos://%s", testAlias), "testval"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("invalid tag", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"bucket-tagging", "--method", "add",
+						fmt.Sprintf("cos://%s", testAlias), "testval"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					fmt.Printf(" : %v", e)
+					So(e, ShouldBeError)
+				})
+				Convey("AddTagging failed", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"bucket-tagging", "--method", "add",
 						fmt.Sprintf("cos://%s", testAlias), "qcs:1#testval"}
 					cmd.SetArgs(args)
 					e := cmd.Execute()
@@ -183,6 +248,47 @@ func TestBucketTaggingCmd(t *testing.T) {
 					fmt.Printf(" : %v", e)
 					So(e, ShouldBeError)
 				})
+			})
+			Convey("deleteDes", func() {
+				Convey("invalid tag format", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"bucket-tagging", "--method", "delete",
+						fmt.Sprintf("cos://%s", testAlias), "testkey2"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeError)
+				})
+				Convey("BucketTagging not exist", func() {
+					clearCmd()
+					cmd := rootCmd
+					args := []string{"bucket-tagging", "--method", "delete",
+						fmt.Sprintf("cos://%s", testAlias), "testkey101#11"}
+					cmd.SetArgs(args)
+					e := cmd.Execute()
+					So(e, ShouldBeError)
+				})
+			})
+			Convey("cos path error", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"bucket-tagging", "--method", "get",
+					fmt.Sprintf("cos:/%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("invalid method", func() {
+				clearCmd()
+				cmd := rootCmd
+
+				args := []string{"bucket-tagging", "--method", "post",
+					fmt.Sprintf("cos://%s", testAlias)}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
 			})
 		})
 	})

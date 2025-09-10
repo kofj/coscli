@@ -16,7 +16,7 @@ func TestConfigAddCmd(t *testing.T) {
 	setUp(testBucket, testAlias, testEndpoint, false, false)
 	defer tearDown(testBucket, testAlias, testEndpoint, false)
 	copyYaml()
-	defer delYaml()
+	defer restoreYaml()
 	clearCmd()
 	cmd := rootCmd
 	cmd.SilenceErrors = true

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,11 +18,12 @@ var (
 	mu sync.Mutex
 )
 
-// 定义一个结构体类型
+// Counter 传输大小
 type Counter struct {
 	TransferSize int64
 }
 
+// Upload 上传文件
 func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) {
 	startT := time.Now().UnixNano() / 1000 / 1000
 	localPath := fileUrl.ToString()
@@ -32,14 +34,26 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 
 	chFiles := make(chan fileInfoType, ChannelSize)
 	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
 	// 统计文件数量及大小数据
 	go fileStatistic(localPath, fo)
-	// 生成文件列表
+	//  统计文件数量及大小数据&生成文件列表
 	go generateFileList(localPath, chFiles, chListError, fo)
 
 	for i := 0; i < fo.Operation.Routines; i++ {
-		go uploadFiles(c, cosUrl, fo, chFiles, chError)
+		go uploadFiles(c, cosUrl, fo, chFiles, chError, chLog)
 	}
 
 	completed := 0
@@ -63,6 +77,9 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 		}
 	}
 
+	close(chLog)
+	wgLogger.Wait()
+
 	closeProgress()
 	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
 
@@ -70,34 +87,58 @@ func Upload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperat
 	PrintTransferStats(startT, endT, fo)
 }
 
-func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <-chan fileInfoType, chError chan<- error) {
+func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <-chan fileInfoType, chError chan<- error, chLog chan<- string) {
 	for file := range chFiles {
 		var skip, isDir bool
 		var err error
 		var size, transferSize int64
 		var msg string
+		var processMsg string
+		var sleepTime time.Duration
 		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
+			startT := time.Now().UnixNano() / 1000 / 1000
 			skip, err, isDir, size, transferSize, msg = SingleUpload(c, fo, file, cosUrl)
+			endT := time.Now().UnixNano() / 1000 / 1000
+			costTime := int(endT - startT)
+			skipMsg := ""
+			if skip {
+				skipMsg = "(skip)"
+			}
+			if retry == 0 {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, skipMsg, costTime)
+				} else {
+					processMsg += fmt.Sprintf("[%s] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, err, costTime)
+				}
+			} else {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, skipMsg, costTime)
+				} else {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err, costTime)
+				}
+			}
 			if err == nil {
 				break // Upload succeeded, break the loop
 			} else {
-				// 服务端重试在go sdk内部进行，客户端仅重试文件上传完完整性校验不通过的case
-				if retry < fo.Operation.ErrRetryNum && strings.HasPrefix(err.Error(), "verification failed, want:") {
-					if fo.Operation.ErrRetryInterval == 0 {
-						// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
-						time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
-					} else {
-						time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
-					}
 
-					fo.Monitor.updateDealSize(-transferSize)
+				if fo.Operation.ErrRetryInterval == 0 {
+					// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
+					sleepTime = time.Duration(rand.Intn(10)+1) * time.Second
+				} else {
+					sleepTime = time.Duration(fo.Operation.ErrRetryInterval) * time.Second
 				}
+
+				time.Sleep(sleepTime)
+
+				fo.Monitor.updateDealSize(-transferSize)
 			}
 		}
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		chLog <- processMsg
 		if err != nil {
-			chError <- fmt.Errorf("%s failed: %w", msg, err)
+			// 获取当前时间
+			chError <- fmt.Errorf("[%s] %s failed: %w\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
 			continue
 		}
 	}
@@ -105,6 +146,7 @@ func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <
 	chError <- nil
 }
 
+// SingleUpload 单文件上传
 func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl StorageUrl) (skip bool, rErr error, isDir bool, size, transferSize int64, msg string) {
 	skip = false
 	rErr = nil
@@ -122,15 +164,29 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 
 	var snapshotKey string
 
-	msg = fmt.Sprintf("\nUpload %s to %s", localFilePath, getCosUrl(cosUrl.(*CosUrl).Bucket, cosPath))
+	msg = fmt.Sprintf("Upload %s to %s", localFilePath, getCosUrl(cosUrl.(*CosUrl).Bucket, cosPath))
+
+	// 标记跳过的文件直接跳过
+	if file.skip {
+		size = fileInfo.Size()
+		isDir = fileInfo.IsDir()
+		skip = true
+		return
+	}
+
 	if fileInfo.IsDir() {
 		isDir = true
-		// 在cos创建文件夹
-		_, err = c.Object.Put(context.Background(), cosPath, strings.NewReader(""), nil)
-		if err != nil {
-			rErr = err
-			return
+		if fo.Operation.SkipDir {
+			skip = true
+		} else {
+			// 在cos创建文件夹
+			_, err = c.Object.Put(context.Background(), cosPath, strings.NewReader(""), nil)
+			if err != nil {
+				rErr = err
+			}
 		}
+		return
+
 	} else {
 		size = fileInfo.Size()
 
@@ -149,15 +205,25 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 			return
 		}
 
+		threadNum := fo.Operation.ThreadNum
+		if threadNum == 0 {
+			// 若未设置文件分块并发数,需要根据文件大小和分块大小计算默认分块并发数
+			threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize)
+			if err != nil {
+				rErr = err
+				return
+			}
+		}
+
 		opt := &cos.MultiUploadOptions{
 			OptIni: &cos.InitiateMultipartUploadOptions{
 				ACLHeaderOptions: &cos.ACLHeaderOptions{
-					XCosACL:              "",
-					XCosGrantRead:        "",
-					XCosGrantWrite:       "",
-					XCosGrantFullControl: "",
-					XCosGrantReadACP:     "",
-					XCosGrantWriteACP:    "",
+					XCosACL:       fo.Operation.Acl,
+					XCosGrantRead: fo.Operation.GrantRead,
+					//XCosGrantWrite:       fo.Operation.GrantWrite,
+					XCosGrantFullControl: fo.Operation.GrantFullControl,
+					XCosGrantReadACP:     fo.Operation.GrantReadAcp,
+					XCosGrantWriteACP:    fo.Operation.GrantWriteAcp,
 				},
 				ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{
 					CacheControl:             fo.Operation.Meta.CacheControl,
@@ -172,18 +238,25 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 					XCosContentSHA1:          "",
 					XCosMetaXXX:              fo.Operation.Meta.XCosMetaXXX,
 					XCosStorageClass:         fo.Operation.StorageClass,
-					XCosServerSideEncryption: "",
-					XCosSSECustomerAglo:      "",
-					XCosSSECustomerKey:       "",
-					XCosSSECustomerKeyMD5:    "",
-					XOptionHeader:            nil,
+					XCosServerSideEncryption: fo.Operation.ServerSideEncryption,
+					XCosSSECustomerAglo:      fo.Operation.SSECustomerAlgo,
+					XCosSSECustomerKey:       fo.Operation.SSECustomerKey,
+					XCosSSECustomerKeyMD5:    fo.Operation.SSECustomerKeyMD5,
+					XOptionHeader:            &http.Header{},
 					XCosTrafficLimit:         (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
 				},
 			},
 			PartSize:        fo.Operation.PartSize,
-			ThreadPoolSize:  fo.Operation.ThreadNum,
-			CheckPoint:      true,
+			ThreadPoolSize:  threadNum,
+			CheckPoint:      fo.Operation.CheckPoint,
 			DisableChecksum: fo.Operation.DisableChecksum,
+		}
+
+		if fo.Operation.Tags != "" {
+			opt.OptIni.XOptionHeader.Add("x-cos-tagging", fo.Operation.Tags)
+		}
+		if fo.Operation.ForbidOverWrite {
+			opt.OptIni.XOptionHeader.Add("x-cos-forbid-overwrite", "true")
 		}
 
 		counter := &Counter{TransferSize: 0}
@@ -196,9 +269,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		_, _, err = c.Object.Upload(context.Background(), cosPath, localFilePath, opt)
 
 		if err != nil {
-			if strings.HasPrefix(err.Error(), "verification failed, want:") {
-				transferSize = counter.TransferSize
-			}
+			transferSize = counter.TransferSize
 			rErr = err
 			return
 		}
@@ -210,4 +281,65 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 	}
 
 	return
+}
+
+// UploadWithDelete 镜像同步上传文件
+func UploadWithDelete(c *cos.Client, cosUrl StorageUrl, srcKeys, uploadKeys map[string]commonInfoType, fo *FileOperations) {
+	startT := time.Now().UnixNano() / 1000 / 1000
+
+	fo.Monitor.init(fo.CpType)
+	chProgressSignal = make(chan chProgressSignalType, 10)
+	go progressBar(fo)
+
+	chFiles := make(chan fileInfoType, ChannelSize)
+	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
+	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
+	// 生成文件列表
+	go generateFileListByKeys(srcKeys, uploadKeys, chFiles, chListError, fo)
+
+	for i := 0; i < fo.Operation.Routines; i++ {
+		go uploadFiles(c, cosUrl, fo, chFiles, chError, chLog)
+	}
+
+	completed := 0
+	for completed <= fo.Operation.Routines {
+		select {
+		case err := <-chListError:
+			if err != nil {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+			completed++
+		case err := <-chError:
+			if err == nil {
+				completed++
+			} else {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+		}
+	}
+
+	close(chLog)
+	wgLogger.Wait()
+
+	closeProgress()
+	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
 }

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 )
 
+// PrintTransferStats 打印执行结果信息
 func PrintTransferStats(startT, endT int64, fo *FileOperations) {
 	if fo.Monitor.ErrNum > 0 && fo.Operation.FailOutput {
 		absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
@@ -19,6 +20,7 @@ func PrintTransferStats(startT, endT int64, fo *FileOperations) {
 	}
 }
 
+// PrintCostTime 打印花费时间信息
 func PrintCostTime(startT, endT int64) {
 	// 计算并输出花费时间
 	elapsedTime := float64(endT-startT) / 1000

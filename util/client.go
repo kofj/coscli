@@ -9,7 +9,15 @@ import (
 
 var secretID, secretKey, secretToken string
 
-// 根据桶别名，从配置文件中加载信息，创建客户端
+// NewClient 创建一个新的客户端实例，根据配置文件加载信息。
+// 参数:
+// - config *Config: 配置信息
+// - param *Param: 参数信息
+// - bucketName string: 桶名称
+// - options ...*FileOperations: 文件操作选项
+// 返回:
+// - client *cos.Client: 创建的客户端实例
+// - err error: 错误信息
 func NewClient(config *Config, param *Param, bucketName string, options ...*FileOperations) (client *cos.Client, err error) {
 	if config.Base.Mode == "CvmRole" {
 		// 若使用 CvmRole 方式，则需请求请求CAM的服务，获取临时密钥
@@ -95,9 +103,15 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 		client = cos.NewClient(url, httpClient)
 	}
 
+	// 切换域名开关，优先使用参数中的开关，若为空再使用配置文件中的开关
+	CloseAutoSwitchHost := param.CloseAutoSwitchHost
+	if CloseAutoSwitchHost == "" {
+		CloseAutoSwitchHost = config.Base.CloseAutoSwitchHost
+	}
+
 	// 切换备用域名开关
-	if config.Base.CloseAutoSwitchHost == "true" {
-		client.Conf.RetryOpt.AutoSwitchHost = false
+	if CloseAutoSwitchHost == "false" {
+		client.Conf.RetryOpt.AutoSwitchHost = true
 	}
 
 	// 服务端错误重试（默认10次，每次间隔1s）
@@ -119,7 +133,11 @@ func NewClient(config *Config, param *Param, bucketName string, options ...*File
 	return client, nil
 }
 
-// 根据函数参数创建客户端
+// CreateClient 根据函数参数创建客户端
+// config: *Config, 配置信息
+// param: *Param, 参数信息
+// bucketIDName: string, 存储桶ID或名称
+// 返回值: (*cos.Client, error), 创建的客户端对象和可能发生的错误
 func CreateClient(config *Config, param *Param, bucketIDName string) (client *cos.Client, err error) {
 	if config.Base.Mode == "CvmRole" {
 		// 若使用 CvmRole 方式，则需请求请求CAM的服务，获取临时密钥
@@ -167,9 +185,15 @@ func CreateClient(config *Config, param *Param, bucketIDName string) (client *co
 		},
 	})
 
+	// 切换域名开关，优先使用参数中的开关，若为空再使用配置文件中的开关
+	CloseAutoSwitchHost := param.CloseAutoSwitchHost
+	if CloseAutoSwitchHost == "" {
+		CloseAutoSwitchHost = config.Base.CloseAutoSwitchHost
+	}
+
 	// 切换备用域名开关
-	if config.Base.CloseAutoSwitchHost == "true" {
-		client.Conf.RetryOpt.AutoSwitchHost = false
+	if CloseAutoSwitchHost == "false" {
+		client.Conf.RetryOpt.AutoSwitchHost = true
 	}
 
 	// 错误重试

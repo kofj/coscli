@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// IsCosPath checks if the given path is a COS path.
+// It returns true if the path starts with "cos://", otherwise it returns false.
 func IsCosPath(path string) bool {
 	if len(path) <= 6 {
 		return false
@@ -19,6 +21,8 @@ func IsCosPath(path string) bool {
 	}
 }
 
+// ParsePath 解析URL路径，返回桶名和路径。
+// 如果URL是COS路径，则解析路径；否则，如果URL以'~'开头，则返回当前用户的home目录。
 func ParsePath(url string) (bucketName string, path string) {
 	if IsCosPath(url) {
 		res := strings.SplitN(url[6:], "/", 2)
@@ -38,6 +42,7 @@ func ParsePath(url string) (bucketName string, path string) {
 	}
 }
 
+// UploadPathFixed appends the file name to the cosPath if it is not complete or ends with a slash.
 func UploadPathFixed(file fileInfoType, cosPath string) (string, string) {
 	// cos路径不全则补充文件名
 	if cosPath == "" || strings.HasSuffix(cosPath, "/") {
@@ -52,6 +57,8 @@ func UploadPathFixed(file fileInfoType, cosPath string) (string, string) {
 	return localFilePath, cosPath
 }
 
+// DownloadPathFixed appends the necessary path separator to the input path if it does not end with one.
+// It also ensures the path is compatible with Windows by replacing '/' with '\\' if necessary.
 func DownloadPathFixed(relativeObject, filePath string) string {
 	if strings.HasSuffix(filePath, "/") || strings.HasSuffix(filePath, "\\") {
 		return filePath + relativeObject
@@ -95,6 +102,8 @@ func getAbsPath(strPath string) (string, error) {
 	return absPath, err
 }
 
+// CheckPath checks if the given fileUrl is a subdirectory of the local file path.
+// It returns an error if the fileUrl is invalid or if the local file path cannot be determined.
 // 检查路径是否是本地文件路径的子路径
 func CheckPath(fileUrl StorageUrl, fo *FileOperations, pathType string) error {
 	absFileDir, err := getAbsPath(fileUrl.ToString())
@@ -122,7 +131,7 @@ func CheckPath(fileUrl StorageUrl, fo *FileOperations, pathType string) error {
 	}
 
 	if strings.Index(absPath, absFileDir) >= 0 {
-		return fmt.Errorf("%s %s is subdirectory of %s", pathType, fo.Operation.SnapshotPath, fileUrl.ToString())
+		return fmt.Errorf("%s %s is subdirectory of %s", pathType, absPath, fileUrl.ToString())
 	}
 	return nil
 }

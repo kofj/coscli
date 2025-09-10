@@ -188,7 +188,8 @@ func tearDown(testBucket, testAlias, testEndpoint string, versioning bool) {
 
 func copyYaml() {
 	// 打开源文件
-	sourceFile, err := os.Open("/root/.cos.yaml")
+	home, _ := homedir.Dir()
+	sourceFile, err := os.Open(home + "/.cos.yaml")
 	if err != nil {
 		logger.Errorln("failed to open source file: %w", err)
 	}
@@ -209,8 +210,42 @@ func copyYaml() {
 
 }
 
-func delYaml() {
+func restoreYaml() {
+	// 打开源文件
+	sourceFile, err := os.Open("test.yaml")
+	if err != nil {
+		logger.Errorf("failed to open source file: %v", err)
+	}
+	defer sourceFile.Close()
+
+	// 创建目标文件
+	home, _ := homedir.Dir()
+	destinationFile, err := os.OpenFile(
+		home+"/.cos.yaml",
+		os.O_RDWR|os.O_CREATE|os.O_TRUNC, // 读写模式，如果文件存在，则清空
+		0644,                             // 文件权限
+	)
+	if err != nil {
+		logger.Errorf("failed to open destination file: %v", err)
+	}
+	defer destinationFile.Close()
+
+	// 复制文件内容
+	_, err = io.Copy(destinationFile, sourceFile)
+	if err != nil {
+		logger.Errorf("failed to copy file content: %v", err)
+	}
+
+	logger.Infoln("yaml restore success")
+
 	if err := os.RemoveAll("test.yaml"); err != nil {
+		logger.Errorln("delDir error: 删除文件夹失败")
+	}
+
+}
+
+func delYaml(name string) {
+	if err := os.RemoveAll(name); err != nil {
 		logger.Errorln("delDir error: 删除文件夹失败")
 	}
 }

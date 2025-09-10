@@ -4,30 +4,41 @@ import (
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"os"
 	"strconv"
 	"time"
 )
 
+// SyncUpload uploads a file to COS.
+// Parameters:
+// - c: *cos.Client
+// - fileUrl: StorageUrl
+// - cosUrl: StorageUrl
+// - fo: *FileOperations
 func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOperations) error {
-	var err error
-	keysToDelete := make(map[string]string)
 	if fo.Operation.Delete {
-		keysToDelete, err = getDeleteKeys(nil, c, fileUrl, cosUrl, fo)
+		var err error
+		keysToDelete := make(map[string]commonInfoType)
+		srcKeys := make(map[string]commonInfoType)
+		uploadKeys := make(map[string]commonInfoType)
+		srcKeys, keysToDelete, uploadKeys, err = getDeleteKeys(nil, c, fileUrl, cosUrl, fo)
 		if err != nil {
 			return fmt.Errorf("get delete keys error : %v", err)
 		}
+		UploadWithDelete(c, cosUrl, srcKeys, uploadKeys, fo)
+		if len(keysToDelete) > 0 {
+			// 删除源位置没有而目标位置有的cos对象或本地文件
+			err = deleteKeys(c, keysToDelete, cosUrl, fo)
+		}
+
+		if err != nil {
+			return fmt.Errorf("delete keys error : %v", err)
+		}
+	} else {
+		// 上传
+		Upload(c, fileUrl, cosUrl, fo)
 	}
 
-	// 上传
-	Upload(c, fileUrl, cosUrl, fo)
-	if len(keysToDelete) > 0 {
-		// 删除源位置没有而目标位置有的cos对象或本地文件
-		err = deleteKeys(c, keysToDelete, cosUrl, fo)
-	}
-
-	if err != nil {
-		return fmt.Errorf("delete keys error : %v", err)
-	}
 	return nil
 }
 
@@ -52,20 +63,39 @@ func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFile
 		}
 	} else {
 		if resp.StatusCode != 404 {
-			cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
-			localCrc, _, err := CalculateHash(localPath, "crc64")
-			if err != nil {
-				return false, err
-			}
-			if cosCrc == localCrc {
-				// 本地校验通过后，若未记录快照。则添加
-				if fo.Operation.SnapshotPath != "" {
-					fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(localFileModifiedTime, 10)), nil)
-				}
+			if fo.Operation.IgnoreExisting {
 				return true, nil
+			} else if fo.Operation.Update {
+				lastModified := resp.Header.Get("Last-Modified")
+
+				// 解析时间字符串
+				lastModifiedTime, err := time.Parse(time.RFC3339, lastModified)
+				if err != nil {
+					lastModifiedTime, err = time.Parse(time.RFC1123, lastModified)
+					if err != nil {
+						return false, err
+					}
+				}
+				if lastModifiedTime.Unix() >= localFileModifiedTime {
+					return true, nil
+				}
 			} else {
-				return false, nil
+				cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
+				localCrc, _, err := CalculateHash(localPath, "crc64")
+				if err != nil {
+					return false, err
+				}
+				if cosCrc == localCrc {
+					// 本地校验通过后，若未记录快照。则添加
+					if fo.Operation.SnapshotPath != "" {
+						fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(localFileModifiedTime, 10)), nil)
+					}
+					return true, nil
+				} else {
+					return false, nil
+				}
 			}
+
 		} else {
 			return false, nil
 		}
@@ -102,35 +132,45 @@ func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPa
 		}
 	}
 
-	localCrc, _, err := CalculateHash(localPath, "crc64")
-	if err != nil {
-		return false, err
-	}
-	resp, err := GetHead(c, object)
-	if err != nil {
-		if resp != nil && resp.StatusCode == 404 {
-			// 文件不在cos上
-			return false, fmt.Errorf("Object not found")
-		} else {
+	if fo.Operation.Update {
+		f, err := os.Stat(localPath)
+		if err != nil {
 			return false, err
 		}
-	} else {
-		cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
-		if cosCrc == localCrc {
-			// 本地校验通过后，添加快照记录
-			if fo.Operation.SnapshotPath != "" {
-				fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
-			}
+
+		fileLastModifiedTime := f.ModTime()
+		if fileLastModifiedTime.Unix() >= objectModifiedTime.Unix() {
 			return true, nil
+		}
+	} else {
+		localCrc, _, err := CalculateHash(localPath, "crc64")
+		if err != nil {
+			return false, err
+		}
+		resp, err := GetHead(c, object)
+		if err != nil {
+			if resp != nil && resp.StatusCode == 404 {
+				// 文件不在cos上
+				return false, fmt.Errorf("Object not found")
+			} else {
+				return false, err
+			}
 		} else {
-			return false, nil
+			cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
+			if cosCrc == localCrc {
+				// 本地校验通过后，添加快照记录
+				if fo.Operation.SnapshotPath != "" {
+					fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
+				}
+				return true, nil
+			}
 		}
 	}
 
 	return false, nil
 }
 
-func skipCopy(srcClient, destClient *cos.Client, object, destPath string) (bool, error) {
+func skipCopy(srcClient, destClient *cos.Client, object, destPath string, fo *FileOperations) (bool, error) {
 	// 获取目标对象的crc64
 	resp, err := GetHead(destClient, destPath)
 	if err != nil {
@@ -142,36 +182,74 @@ func skipCopy(srcClient, destClient *cos.Client, object, destPath string) (bool,
 		}
 	} else {
 		if resp.StatusCode != 404 {
-			destCrc := resp.Header.Get("x-cos-hash-crc64ecma")
-
-			// 获取来源对象的crc64
-			resp, err = GetHead(srcClient, object)
-			srcCrc := ""
-			if err != nil {
-				if resp != nil && resp.StatusCode == 404 {
-					// 文件不在来源cos上，报错
-					return false, fmt.Errorf("Object not found")
-				} else {
-					return false, err
-				}
-			} else {
-				srcCrc = resp.Header.Get("x-cos-hash-crc64ecma")
-			}
-
-			// 对比来源cos和目标cos的crc64，若一样则跳过
-			if destCrc == srcCrc {
+			if fo.Operation.IgnoreExisting {
 				return true, nil
+			} else if fo.Operation.Update {
+				destLastModified := resp.Header.Get("Last-Modified")
+				// 解析时间字符串
+				destLastModifiedTime, err := time.Parse(time.RFC3339, destLastModified)
+				if err != nil {
+					destLastModifiedTime, err = time.Parse(time.RFC1123, destLastModified)
+					if err != nil {
+						return false, err
+					}
+				}
+				// 获取来源对象的crc64
+				resp, err = GetHead(srcClient, object)
+				if err != nil {
+					if resp != nil && resp.StatusCode == 404 {
+						// 文件不在来源cos上，报错
+						return false, fmt.Errorf("Object not found")
+					} else {
+						return false, err
+					}
+				}
+				srcLastModified := resp.Header.Get("Last-Modified")
+				// 解析时间字符串
+				srcLastModifiedTime, err := time.Parse(time.RFC3339, srcLastModified)
+				if err != nil {
+					srcLastModifiedTime, err = time.Parse(time.RFC1123, srcLastModified)
+					if err != nil {
+						return false, err
+					}
+				}
+
+				if destLastModifiedTime.Unix() >= srcLastModifiedTime.Unix() {
+					return true, nil
+				} else {
+					return false, nil
+				}
+
 			} else {
-				return false, nil
+				destCrc := resp.Header.Get("x-cos-hash-crc64ecma")
+
+				// 获取来源对象的crc64
+				resp, err = GetHead(srcClient, object)
+				srcCrc := ""
+				if err != nil {
+					if resp != nil && resp.StatusCode == 404 {
+						// 文件不在来源cos上，报错
+						return false, fmt.Errorf("Object not found")
+					} else {
+						return false, err
+					}
+				} else {
+					srcCrc = resp.Header.Get("x-cos-hash-crc64ecma")
+				}
+				// 对比来源cos和目标cos的crc64，若一样则跳过
+				if destCrc == srcCrc {
+					return true, nil
+				} else {
+					return false, nil
+				}
 			}
 		} else {
 			return false, nil
 		}
 	}
-
-	return false, nil
 }
 
+// InitSnapshotDb 初始化快照db
 func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	if fo.Operation.SnapshotPath == "" {
 		return nil
@@ -195,56 +273,73 @@ func InitSnapshotDb(srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	return nil
 }
 
+// SyncDownload 同步下载
 func SyncDownload(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) error {
 	var err error
-	keysToDelete := make(map[string]string)
 	if fo.Operation.Delete {
-		keysToDelete, err = getDeleteKeys(c, nil, cosUrl, fileUrl, fo)
+		keysToDelete := make(map[string]commonInfoType)
+		srcKeys := make(map[string]commonInfoType)
+		downloadKeys := make(map[string]commonInfoType)
+		srcKeys, keysToDelete, downloadKeys, err = getDeleteKeys(c, nil, cosUrl, fileUrl, fo)
 		if err != nil {
 			return fmt.Errorf("get delete keys error : %v", err)
 		}
+		err = DownloadWithDelete(c, srcKeys, downloadKeys, cosUrl, fileUrl, fo)
+		if err != nil {
+			return err
+		}
+
+		if len(keysToDelete) > 0 {
+			// 删除源位置没有而目标位置有的cos对象或本地文件
+			err = deleteKeys(c, keysToDelete, fileUrl, fo)
+		}
+		if err != nil {
+			return fmt.Errorf("delete keys error : %v", err)
+		}
+	} else {
+		// 下载
+		err = Download(c, cosUrl, fileUrl, fo)
+		if err != nil {
+			return err
+		}
+
 	}
 
-	// 下载
-	err = Download(c, cosUrl, fileUrl, fo)
-	if err != nil {
-		return err
-	}
-
-	if len(keysToDelete) > 0 {
-		// 删除源位置没有而目标位置有的cos对象或本地文件
-		err = deleteKeys(c, keysToDelete, fileUrl, fo)
-	}
-
-	if err != nil {
-		return fmt.Errorf("delete keys error : %v", err)
-	}
 	return nil
 }
 
+// SyncCosCopy 同步copy
 func SyncCosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	var err error
-	keysToDelete := make(map[string]string)
 	if fo.Operation.Delete {
-		keysToDelete, err = getDeleteKeys(srcClient, destClient, srcUrl, destUrl, fo)
+		keysToDelete := make(map[string]commonInfoType)
+		srcKeys := make(map[string]commonInfoType)
+		copyKeys := make(map[string]commonInfoType)
+		srcKeys, keysToDelete, copyKeys, err = getDeleteKeys(srcClient, destClient, srcUrl, destUrl, fo)
 		if err != nil {
 			fmt.Errorf("get delete keys error : %v", err)
 		}
+
+		err = CosCopyWithDelete(srcClient, destClient, srcKeys, copyKeys, srcUrl, destUrl, fo)
+		if err != nil {
+			return err
+		}
+
+		if len(keysToDelete) > 0 {
+			// 删除源位置没有而目标位置有的cos对象或本地文件
+			err = deleteKeys(destClient, keysToDelete, destUrl, fo)
+		}
+
+		if err != nil {
+			fmt.Errorf("delete keys error : %v", err)
+		}
+	} else {
+		// copy
+		err = CosCopy(srcClient, destClient, srcUrl, destUrl, fo)
+		if err != nil {
+			return err
+		}
 	}
 
-	// copy
-	err = CosCopy(srcClient, destClient, srcUrl, destUrl, fo)
-	if err != nil {
-		return err
-	}
-
-	if len(keysToDelete) > 0 {
-		// 删除源位置没有而目标位置有的cos对象或本地文件
-		err = deleteKeys(destClient, keysToDelete, destUrl, fo)
-	}
-
-	if err != nil {
-		fmt.Errorf("delete keys error : %v", err)
-	}
 	return nil
 }

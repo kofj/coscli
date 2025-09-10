@@ -5,10 +5,16 @@ import (
 	"fmt"
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"math/rand"
+	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
+// CosCopy copies a file from srcClient to destClient using the provided URLs and FileOperations.
+// srcClient and destClient are *cos.Client instances.
+// srcUrl and destUrl are StorageUrl instances.
+// fo is a *FileOperations instance.
 func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) error {
 	startT := time.Now().UnixNano() / 1000 / 1000
 
@@ -36,7 +42,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 		}
 
 		// copy文件
-		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, srcUrl, destUrl, fo.Operation.VersionId)
+		skip, err, isDir, size, msg := singleCopy(srcClient, destClient, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified"), false}, srcUrl, destUrl, fo.Operation.VersionId)
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
@@ -49,6 +55,7 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 	}
 
 	CloseErrorOutputFile(fo)
+	CloseProcessLoggerFile(fo)
 	closeProgress()
 	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
 
@@ -61,9 +68,20 @@ func CosCopy(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *
 func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
 	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
-	if fo.BucketType == "OFS" {
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
+	if fo.BucketType == BucketTypeOfs {
 		// 扫描ofs对象大小及数量
 		go getOfsObjectList(srcClient, srcUrl, nil, nil, fo, true, false)
 		// 获取ofs对象列表
@@ -76,7 +94,7 @@ func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUr
 	}
 
 	for i := 0; i < fo.Operation.Routines; i++ {
-		go copyFiles(srcClient, destClient, srcUrl, destUrl, fo, chObjects, chError)
+		go copyFiles(srcClient, destClient, srcUrl, destUrl, fo, chObjects, chError, chLog)
 	}
 
 	completed := 0
@@ -99,33 +117,59 @@ func batchCopyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUr
 			}
 		}
 	}
+
+	close(chLog)
+	wgLogger.Wait()
 }
 
-func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error) {
+func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error, chLog chan<- string) {
 	for object := range chObjects {
 		var skip, isDir bool
 		var err error
 		var size int64
 		var msg string
+		var processMsg string
+		var sleepTime time.Duration
 		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
+			startT := time.Now().UnixNano() / 1000 / 1000
 			skip, err, isDir, size, msg = singleCopy(srcClient, destClient, fo, object, srcUrl, destUrl)
+			endT := time.Now().UnixNano() / 1000 / 1000
+			costTime := int(endT - startT)
+			skipMsg := ""
+			if skip {
+				skipMsg = "(skip)"
+			}
+			if retry == 0 {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, skipMsg, costTime)
+				} else {
+					processMsg += fmt.Sprintf("[%s] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, err, costTime)
+				}
+			} else {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, skipMsg, costTime)
+				} else {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err, costTime)
+				}
+			}
 			if err == nil {
 				break // Copy succeeded, break the loop
 			} else {
-				if retry < fo.Operation.ErrRetryNum {
-					if fo.Operation.ErrRetryInterval == 0 {
-						// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
-						time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
-					} else {
-						time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
-					}
+				if fo.Operation.ErrRetryInterval == 0 {
+					// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
+					sleepTime = time.Duration(rand.Intn(10)+1) * time.Second
+				} else {
+					sleepTime = time.Duration(fo.Operation.ErrRetryInterval) * time.Second
 				}
+
+				time.Sleep(sleepTime)
 			}
 		}
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		chLog <- processMsg
 		if err != nil {
-			chError <- fmt.Errorf("%s failed: %w", msg, err)
+			chError <- fmt.Errorf("[%s] %s failed: %w\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
 			continue
 		}
 	}
@@ -133,6 +177,7 @@ func copyFiles(srcClient, destClient *cos.Client, srcUrl, destUrl StorageUrl, fo
 	chError <- nil
 }
 
+// singleCopy todo
 func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInfo objectInfoType, srcUrl, destUrl StorageUrl, VersionId ...string) (skip bool, rErr error, isDir bool, size int64, msg string) {
 	skip = false
 	rErr = nil
@@ -141,17 +186,24 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	object := objectInfo.prefix + objectInfo.relativeKey
 
 	destPath := copyPathFixed(objectInfo.relativeKey, destUrl.(*CosUrl).Object)
-	msg = fmt.Sprintf("\nCopy %s to %s", getCosUrl(srcUrl.(*CosUrl).Bucket, object), getCosUrl(destUrl.(*CosUrl).Bucket, destPath))
+	msg = fmt.Sprintf("Copy %s to %s", getCosUrl(srcUrl.(*CosUrl).Bucket, object), getCosUrl(destUrl.(*CosUrl).Bucket, destPath))
 
 	var err error
-	// 是文件夹则直接创建并退出
+	// 标记文件夹
 	if size == 0 && strings.HasSuffix(object, "/") {
 		isDir = true
 	}
 
+	// 标记跳过的对象直接跳过
+	if objectInfo.skip {
+		size = objectInfo.size
+		skip = true
+		return
+	}
+
 	// 仅sync命令执行skip
 	if fo.Command == CommandSync && !isDir {
-		skip, err = skipCopy(srcClient, destClient, object, destPath)
+		skip, err = skipCopy(srcClient, destClient, object, destPath, fo)
 		if err != nil {
 			rErr = err
 			return
@@ -162,8 +214,15 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 		return
 	}
 
-	// copy暂不支持监听进度
-	// size = 0
+	threadNum := fo.Operation.ThreadNum
+	if threadNum == 0 {
+		// 若未设置文件分块并发数,需要根据文件大小和分块大小计算默认分块并发数
+		threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize)
+		if err != nil {
+			rErr = err
+			return
+		}
+	}
 
 	url, err := GenURL(fo.Config, fo.Param, srcUrl.(*CosUrl).Bucket)
 
@@ -172,19 +231,40 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	opt := &cos.MultiCopyOptions{
 		OptCopy: &cos.ObjectCopyOptions{
 			&cos.ObjectCopyHeaderOptions{
-				CacheControl:       fo.Operation.Meta.CacheControl,
-				ContentDisposition: fo.Operation.Meta.ContentDisposition,
-				ContentEncoding:    fo.Operation.Meta.ContentEncoding,
-				ContentType:        fo.Operation.Meta.ContentType,
-				Expires:            fo.Operation.Meta.Expires,
-				XCosStorageClass:   fo.Operation.StorageClass,
-				XCosMetaXXX:        fo.Operation.Meta.XCosMetaXXX,
+				CacheControl:             fo.Operation.Meta.CacheControl,
+				ContentDisposition:       fo.Operation.Meta.ContentDisposition,
+				ContentEncoding:          fo.Operation.Meta.ContentEncoding,
+				ContentType:              fo.Operation.Meta.ContentType,
+				Expires:                  fo.Operation.Meta.Expires,
+				ContentLanguage:          fo.Operation.Meta.ContentLanguage,
+				XCosStorageClass:         fo.Operation.StorageClass,
+				XCosMetaXXX:              fo.Operation.Meta.XCosMetaXXX,
+				XCosServerSideEncryption: fo.Operation.ServerSideEncryption,
+				XCosSSECustomerAglo:      fo.Operation.SSECustomerAlgo,
+				XCosSSECustomerKey:       fo.Operation.SSECustomerKey,
+				XCosSSECustomerKeyMD5:    fo.Operation.SSECustomerKeyMD5,
+				XOptionHeader:            &http.Header{},
 			},
-			nil,
+			&cos.ACLHeaderOptions{
+				XCosACL:       fo.Operation.Acl,
+				XCosGrantRead: fo.Operation.GrantRead,
+				//XCosGrantWrite:       fo.Operation.GrantWrite,
+				XCosGrantFullControl: fo.Operation.GrantFullControl,
+				XCosGrantReadACP:     fo.Operation.GrantReadAcp,
+				XCosGrantWriteACP:    fo.Operation.GrantWriteAcp,
+			},
 		},
 		PartSize:       fo.Operation.PartSize,
-		ThreadPoolSize: fo.Operation.ThreadNum,
+		ThreadPoolSize: threadNum,
 	}
+
+	if fo.Operation.Tags != "" {
+		opt.OptCopy.XOptionHeader.Add("x-cos-tagging", fo.Operation.Tags)
+	}
+	if fo.Operation.ForbidOverWrite {
+		opt.OptCopy.XOptionHeader.Add("x-cos-forbid-overwrite", "true")
+	}
+
 	if fo.Operation.Meta.CacheControl != "" || fo.Operation.Meta.ContentDisposition != "" || fo.Operation.Meta.ContentEncoding != "" ||
 		fo.Operation.Meta.ContentType != "" || fo.Operation.Meta.Expires != "" || fo.Operation.Meta.MetaChange {
 	}
@@ -192,7 +272,11 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 		opt.OptCopy.ObjectCopyHeaderOptions.XCosMetadataDirective = "Replaced"
 	}
 
-	_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt, VersionId...)
+	if fo.BucketType == BucketTypeOfs {
+		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt)
+	} else {
+		_, _, err = destClient.Object.MultiCopy(context.Background(), destPath, srcURL, opt, VersionId...)
+	}
 
 	if err != nil {
 		rErr = err
@@ -208,4 +292,77 @@ func singleCopy(srcClient, destClient *cos.Client, fo *FileOperations, objectInf
 	}
 
 	return
+}
+
+// CosCopyWithDelete copies files from source to destination with delete option.
+// It takes srcClient and destClient as COS clients, srcKeys and copyKeys as maps of source and destination keys,
+// srcUrl and destUrl as storage URLs, and fo as a FileOperations object.
+func CosCopyWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[string]commonInfoType, srcUrl, destUrl StorageUrl, fo *FileOperations) error {
+	startT := time.Now().UnixNano() / 1000 / 1000
+
+	fo.Monitor.init(fo.CpType)
+	chProgressSignal = make(chan chProgressSignalType, 10)
+	go progressBar(fo)
+
+	// 多对象copy
+	batchCopyFilesWithDelete(srcClient, destClient, srcKeys, copyKeys, srcUrl, destUrl, fo)
+
+	CloseErrorOutputFile(fo)
+	CloseProcessLoggerFile(fo)
+	closeProgress()
+	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
+
+	return nil
+}
+
+// batchCopyFilesWithDelete todo
+func batchCopyFilesWithDelete(srcClient, destClient *cos.Client, srcKeys, copyKeys map[string]commonInfoType, srcUrl, destUrl StorageUrl, fo *FileOperations) {
+	chObjects := make(chan objectInfoType, ChannelSize)
+	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
+	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
+	// 根据获取的列表统计对象大小数量并生成copy对象列表
+	go getObjectListByKeys(srcKeys, copyKeys, chObjects, chListError, fo)
+
+	for i := 0; i < fo.Operation.Routines; i++ {
+		go copyFiles(srcClient, destClient, srcUrl, destUrl, fo, chObjects, chError, chLog)
+	}
+
+	completed := 0
+	for completed <= fo.Operation.Routines {
+		select {
+		case err := <-chListError:
+			if err != nil {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+			completed++
+		case err := <-chError:
+			if err == nil {
+				completed++
+			} else {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+		}
+	}
+
+	close(chLog)
+	wgLogger.Wait()
 }

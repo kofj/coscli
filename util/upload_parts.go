@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// ListParts 列出分块上传任务
 func ListParts(c *cos.Client, cosUrl StorageUrl, limit int, uploadId string) error {
 	// 查询上传中的分块任务是否存在
 	uploadExist, err := CheckUploadExist(c, cosUrl, uploadId)
@@ -74,6 +75,7 @@ func ListParts(c *cos.Client, cosUrl StorageUrl, limit int, uploadId string) err
 	return nil
 }
 
+// ListUploads 列出所有上传任务
 func ListUploads(c *cos.Client, cosUrl StorageUrl, limit int, filters []FilterOptionType) error {
 	var err error
 	var uploads []struct {
@@ -133,6 +135,7 @@ func ListUploads(c *cos.Client, cosUrl StorageUrl, limit int, filters []FilterOp
 	return nil
 }
 
+// GetUploadsListForLs 获取上传任务列表
 func GetUploadsListForLs(c *cos.Client, cosUrl StorageUrl, uploadIDMarker, keyMarker string, limit int, recursive bool) (err error, uploads []struct {
 	Key          string
 	UploadID     string `xml:"UploadId"`
@@ -168,6 +171,7 @@ func GetUploadsListForLs(c *cos.Client, cosUrl StorageUrl, uploadIDMarker, keyMa
 	return
 }
 
+// GetPartsListForLs 获取上传分片列表
 func GetPartsListForLs(c *cos.Client, cosUrl StorageUrl, uploadId, partNumberMarker string, limit int) (err error, parts []cos.Object, isTruncated bool, nextPartNumberMarker string) {
 	name := cosUrl.(*CosUrl).Object
 
@@ -189,6 +193,7 @@ func GetPartsListForLs(c *cos.Client, cosUrl StorageUrl, uploadId, partNumberMar
 	return
 }
 
+// AbortUploads 清理上传碎片
 func AbortUploads(args []string, fo *FileOperations) error {
 	for _, arg := range args {
 
@@ -248,6 +253,7 @@ func AbortUploads(args []string, fo *FileOperations) error {
 	return nil
 }
 
+// GetUploadsListRecursive 获取上传任务列表
 func GetUploadsListRecursive(c *cos.Client, prefix string, limit int, include string, exclude string) (uploads []UploadInfo, err error) {
 	opt := &cos.ListMultipartUploadsOptions{
 		Delimiter:      "",

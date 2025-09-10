@@ -5,11 +5,14 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
+// CosListener is a struct representing a listener for COS progress events.
 type CosListener struct {
 	fo      *FileOperations
 	counter *Counter
 }
 
+// ProgressChangedCallback is a callback function that is triggered when the progress of the COS operation changes.
+// It updates the transfer size and deal size based on the event type and consumed bytes.
 func (l *CosListener) ProgressChangedCallback(event *cos.ProgressEvent) {
 	switch event.EventType {
 	case cos.ProgressStartedEvent:

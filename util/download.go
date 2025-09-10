@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -15,6 +16,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
+// DownloadOptions is a struct used to configure download options.
 type DownloadOptions struct {
 	RateLimiting float32
 	PartSize     int64
@@ -23,6 +25,14 @@ type DownloadOptions struct {
 	SnapshotPath string
 }
 
+// Download downloads a file from the specified COS URL to the specified file URL.
+//
+// c: *cos.Client - the COS client to use for downloading.
+// cosUrl: StorageUrl - the COS URL of the file to download.
+// fileUrl: StorageUrl - the URL where the file should be saved.
+// fo: *FileOperations - the operations object to handle file operations.
+//
+// Returns an error if the download fails.
 func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) error {
 
 	startT := time.Now().UnixNano() / 1000 / 1000
@@ -55,7 +65,7 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 		freshProgress()
 
 		// 下载文件
-		skip, err, isDir, size, _, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified")}, cosUrl, fileUrl, fo.Operation.VersionId)
+		skip, err, isDir, size, _, msg := singleDownload(c, fo, objectInfoType{prefix, relativeKey, resp.ContentLength, resp.Header.Get("Last-Modified"), false}, cosUrl, fileUrl, fo.Operation.VersionId)
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
 		if err != nil {
 			return fmt.Errorf("%s failed: %v", msg, err)
@@ -77,9 +87,20 @@ func Download(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOper
 func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
 	chObjects := make(chan objectInfoType, ChannelSize)
 	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
 	chListError := make(chan error, 1)
 
-	if fo.BucketType == "OFS" {
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
+	if fo.BucketType == BucketTypeOfs {
 		// 扫描ofs对象大小及数量
 		go getOfsObjectList(c, cosUrl, nil, nil, fo, true, false)
 		// 获取ofs对象列表
@@ -92,7 +113,7 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 	}
 
 	for i := 0; i < fo.Operation.Routines; i++ {
-		go downloadFiles(c, cosUrl, fileUrl, fo, chObjects, chError)
+		go downloadFiles(c, cosUrl, fileUrl, fo, chObjects, chError, chLog)
 	}
 
 	completed := 0
@@ -115,36 +136,61 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 			}
 		}
 	}
+
+	close(chLog)
+	wgLogger.Wait()
 }
 
-func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error) {
+func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations, chObjects <-chan objectInfoType, chError chan<- error, chLog chan<- string) {
 	for object := range chObjects {
 		var skip, isDir bool
 		var err error
 		var size, transferSize int64
 		var msg string
+		var processMsg string
+		var sleepTime time.Duration
 		for retry := 0; retry <= fo.Operation.ErrRetryNum; retry++ {
+			startT := time.Now().UnixNano() / 1000 / 1000
 			skip, err, isDir, size, transferSize, msg = singleDownload(c, fo, object, cosUrl, fileUrl)
+			endT := time.Now().UnixNano() / 1000 / 1000
+			costTime := int(endT - startT)
+			skipMsg := ""
+			if skip {
+				skipMsg = "(skip)"
+			}
+			if retry == 0 {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, skipMsg, costTime)
+				} else {
+					processMsg += fmt.Sprintf("[%s] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), msg, err, costTime)
+				}
+			} else {
+				if err == nil {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s successed%s,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, skipMsg, costTime)
+				} else {
+					processMsg += fmt.Sprintf("[%s] retry[%d] with sleep[%v] %s failed: %v,cost %dms\n", time.Now().Format("2006-01-02 15:04:05"), retry, sleepTime.Seconds(), msg, err, costTime)
+				}
+			}
 			if err == nil {
 				break // Download succeeded, break the loop
 			} else {
-				// 服务端重试在go sdk内部进行，客户端仅重试文件上传完完整性校验不通过的case
-				if retry < fo.Operation.ErrRetryNum && strings.HasPrefix(err.Error(), "verification failed, want:") {
-					if fo.Operation.ErrRetryInterval == 0 {
-						// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
-						time.Sleep(time.Duration(rand.Intn(10)+1) * time.Second)
-					} else {
-						time.Sleep(time.Duration(fo.Operation.ErrRetryInterval) * time.Second)
-					}
-
-					fo.Monitor.updateDealSize(-transferSize)
+				if fo.Operation.ErrRetryInterval == 0 {
+					// If the retry interval is not specified, retry after a random interval of 1~10 seconds.
+					sleepTime = time.Duration(rand.Intn(10)+1) * time.Second
+				} else {
+					sleepTime = time.Duration(fo.Operation.ErrRetryInterval) * time.Second
 				}
+
+				time.Sleep(sleepTime)
+
+				fo.Monitor.updateDealSize(-transferSize)
 			}
 		}
 
 		fo.Monitor.updateMonitor(skip, err, isDir, size)
+		chLog <- processMsg
 		if err != nil {
-			chError <- fmt.Errorf("%s failed: %w", msg, err)
+			chError <- fmt.Errorf("[%s] %s failed: %w\n", time.Now().Format("2006-01-02 15:04:05"), msg, err)
 			continue
 		}
 	}
@@ -161,26 +207,41 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	object := objectInfo.prefix + objectInfo.relativeKey
 
 	localFilePath := DownloadPathFixed(objectInfo.relativeKey, fileUrl.ToString())
-	msg = fmt.Sprintf("\nDownload %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
+	msg = fmt.Sprintf("Download %s to %s", getCosUrl(cosUrl.(*CosUrl).Bucket, object), localFilePath)
 
-	_, err := os.Stat(localFilePath)
-
-	// 是文件夹则直接创建并退出
+	// 标记文件夹
 	if size == 0 && strings.HasSuffix(object, "/") {
-		rErr = os.MkdirAll(localFilePath, 0755)
 		isDir = true
+	}
+
+	// 标记跳过的对象直接跳过
+	if objectInfo.skip {
+		size = objectInfo.size
+		skip = true
 		return
 	}
+
+	// 是文件夹则直接创建并退出
+	if isDir {
+		rErr = os.MkdirAll(localFilePath, 0755)
+		return
+	}
+
+	_, err := os.Stat(localFilePath)
 
 	if err == nil {
 		// 文件存在再判断是否需要跳过
 		// 仅sync命令执行skip
 		if fo.Command == CommandSync {
-			absLocalFilePath, _ := filepath.Abs(localFilePath)
-			snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
-			skip, err = skipDownload(snapshotKey, c, fo, localFilePath, objectInfo.lastModified, object)
-			if err != nil {
-				rErr = err
+			if fo.Operation.IgnoreExisting {
+				skip = true
+			} else {
+				absLocalFilePath, _ := filepath.Abs(localFilePath)
+				snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
+				skip, err = skipDownload(snapshotKey, c, fo, localFilePath, objectInfo.lastModified, object)
+				if err != nil {
+					rErr = err
+				}
 			}
 
 			if skip {
@@ -195,6 +256,16 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	if err != nil {
 		rErr = err
 		return
+	}
+
+	threadNum := fo.Operation.ThreadNum
+	if threadNum == 0 {
+		// 若未设置文件分块并发数,需要根据文件大小和分块大小计算默认分块并发数
+		threadNum, err = getThreadNumByPartSize(size, fo.Operation.PartSize)
+		if err != nil {
+			rErr = err
+			return
+		}
 	}
 
 	// 开始下载文件
@@ -215,8 +286,8 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 			XCosTrafficLimit:           (int)(fo.Operation.RateLimiting * 1024 * 1024 * 8),
 		},
 		PartSize:        fo.Operation.PartSize,
-		ThreadPoolSize:  fo.Operation.ThreadNum,
-		CheckPoint:      true,
+		ThreadPoolSize:  threadNum,
+		CheckPoint:      fo.Operation.CheckPoint,
 		CheckPointFile:  "",
 		DisableChecksum: fo.Operation.DisableChecksum,
 	}
@@ -229,12 +300,14 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 
 	var resp *cos.Response
 
-	resp, err = c.Object.Download(context.Background(), object, localFilePath, opt, VersionId...)
+	if fo.BucketType == BucketTypeOfs {
+		resp, err = c.Object.Download(context.Background(), object, localFilePath, opt)
+	} else {
+		resp, err = c.Object.Download(context.Background(), object, localFilePath, opt, VersionId...)
+	}
 
 	if err != nil {
-		if strings.HasPrefix(err.Error(), "verification failed, want:") {
-			transferSize = counter.TransferSize
-		}
+		transferSize = counter.TransferSize
 		rErr = err
 		return
 	}
@@ -263,4 +336,72 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	}
 
 	return
+}
+
+// DownloadWithDelete todo
+func DownloadWithDelete(c *cos.Client, srcKeys, downloadKeys map[string]commonInfoType, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) error {
+	startT := time.Now().UnixNano() / 1000 / 1000
+
+	fo.Monitor.init(fo.CpType)
+	chProgressSignal = make(chan chProgressSignalType, 10)
+	go progressBar(fo)
+
+	// 多对象下载
+	batchDownloadFilesWithDelete(c, srcKeys, downloadKeys, cosUrl, fileUrl, fo)
+
+	closeProgress()
+	fmt.Printf(fo.Monitor.progressBar(true, normalExit))
+
+	endT := time.Now().UnixNano() / 1000 / 1000
+	PrintTransferStats(startT, endT, fo)
+
+	return nil
+}
+
+func batchDownloadFilesWithDelete(c *cos.Client, srcKeys, downloadKeys map[string]commonInfoType, cosUrl StorageUrl, fileUrl StorageUrl, fo *FileOperations) {
+	chObjects := make(chan objectInfoType, ChannelSize)
+	chError := make(chan error, fo.Operation.Routines)
+	chLog := make(chan string, fo.Operation.Routines)
+	chListError := make(chan error, 1)
+
+	// 启动进程日志处理协程
+	var wgLogger sync.WaitGroup
+	wgLogger.Add(1)
+	go func() {
+		defer wgLogger.Done() // 确保在退出时通知等待组
+		for processMsg := range chLog {
+			writeProcessLog(processMsg, fo)
+		}
+	}()
+
+	// 生成下载key
+	go getObjectListByKeys(srcKeys, downloadKeys, chObjects, chListError, fo)
+
+	for i := 0; i < fo.Operation.Routines; i++ {
+		go downloadFiles(c, cosUrl, fileUrl, fo, chObjects, chError, chLog)
+	}
+
+	completed := 0
+	for completed <= fo.Operation.Routines {
+		select {
+		case err := <-chListError:
+			if err != nil {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+			completed++
+		case err := <-chError:
+			if err == nil {
+				completed++
+			} else {
+				if fo.Operation.FailOutput {
+					writeError(err.Error(), fo)
+				}
+			}
+		}
+	}
+
+	close(chLog)
+	wgLogger.Wait()
 }

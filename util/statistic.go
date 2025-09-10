@@ -1,7 +1,6 @@
 package util
 
 import (
-	"context"
 	"fmt"
 	"github.com/olekukonko/tablewriter"
 	logger "github.com/sirupsen/logrus"
@@ -11,23 +10,19 @@ import (
 	"strings"
 )
 
-var standardCnt, standardIACnt, intelligentTieringCnt, archiveCnt, deepArchiveCnt int
-var mazStandardCnt, mazStandardIACnt, mazIntelligentTieringCnt, mazArchiveCnt int
-var standardSize, standardIASize, intelligentTieringSize, archiveSize, deepArchiveSize int64
-var mazStandardSize, mazStandardIASize, mazIntelligentTieringSize, mazArchiveSize int64
+var standardCnt, standardIACnt, intelligentTieringCnt, archiveCnt, deepArchiveCnt, coldCnt int
+var mazStandardCnt, mazStandardIACnt, mazIntelligentTieringCnt, mazArchiveCnt, mazColdCnt int
+var standardSize, standardIASize, intelligentTieringSize, archiveSize, deepArchiveSize, coldSize int64
+var mazStandardSize, mazStandardIASize, mazIntelligentTieringSize, mazArchiveSize, mazColdSize int64
 
 var deleteMarkerCnt int
 var totalCnt int
 var totalSize int64
 
-func DuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duType int, allVersions bool) error {
-	// 根据s.Header判断是否是融合桶或者普通桶
-	s, err := c.Bucket.Head(context.Background())
-	if err != nil {
-		return err
-	}
-
-	if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+// DuObjects 统计cos对象
+func DuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, duType int, allVersions bool, bucketType string) error {
+	var err error
+	if bucketType == BucketTypeOfs {
 		prefix := cosUrl.(*CosUrl).Object
 		err = countOfsObjects(c, prefix, filters, "", duType)
 	} else {
@@ -172,6 +167,12 @@ func statisticObjects(object cos.Object, duType int) {
 		case MAZArchive:
 			mazArchiveCnt++
 			mazArchiveSize += object.Size
+		case Cold:
+			coldCnt++
+			coldSize += object.Size
+		case MAZCold:
+			mazColdCnt++
+			mazColdSize += object.Size
 		}
 	}
 	totalSize += object.Size
@@ -208,6 +209,12 @@ func statisticObjectVersions(object cos.ListVersionsResultVersion, duType int) {
 		case MAZArchive:
 			mazArchiveCnt++
 			mazArchiveSize += object.Size
+		case Cold:
+			coldCnt++
+			coldSize += object.Size
+		case MAZCold:
+			mazColdCnt++
+			mazColdSize += object.Size
 		}
 	}
 	totalSize += object.Size
@@ -226,6 +233,12 @@ func printStatistic(allVersions bool) {
 	table.Append([]string{MAZStandardIA, fmt.Sprintf("%d", mazStandardIACnt), FormatSize(mazStandardIASize)})
 	table.Append([]string{MAZIntelligentTiering, fmt.Sprintf("%d", mazIntelligentTieringCnt), FormatSize(mazIntelligentTieringSize)})
 	table.Append([]string{MAZArchive, fmt.Sprintf("%d", mazArchiveCnt), FormatSize(mazArchiveSize)})
+	if coldCnt > 0 {
+		table.Append([]string{Cold, fmt.Sprintf("%d", coldCnt), FormatSize(coldSize)})
+	}
+	if mazColdCnt > 0 {
+		table.Append([]string{MAZCold, fmt.Sprintf("%d", mazColdCnt), FormatSize(mazColdSize)})
+	}
 
 	table.SetAlignment(tablewriter.ALIGN_RIGHT)
 	table.SetBorders(tablewriter.Border{
@@ -243,6 +256,7 @@ func printStatistic(allVersions bool) {
 
 }
 
+// CosInfo cos文件信息
 type CosInfo struct {
 	Name       string
 	Size       int64
@@ -252,7 +266,8 @@ type CosInfo struct {
 var dirs []CosInfo
 var files []CosInfo
 
-func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType) error {
+// LsAndDuObjects 列出一级目录并统计文件个数及大小
+func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType, bucketType string) error {
 	var err error
 	var objects []cos.Object
 	var commonPrefixes []string
@@ -273,7 +288,7 @@ func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType
 					if err != nil {
 						return fmt.Errorf("cos url format error:%v", err)
 					}
-					DuObjects(c, cosDirUrl, filters, DU_TYPE_TOTAL, false)
+					DuObjects(c, cosDirUrl, filters, DU_TYPE_TOTAL, false, bucketType)
 					// 记录统计数据
 					dirs = append(dirs, CosInfo{
 						Name:       commonPrefix,
@@ -334,27 +349,3 @@ func LsAndDuObjects(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType
 
 	return nil
 }
-
-//
-//func DuObjectsForPrefix(c *cos.Client, cosUrl StorageUrl, filters []FilterOptionType) error {
-//	// 根据s.Header判断是否是融合桶或者普通桶
-//	s, err := c.Bucket.Head(context.Background())
-//	if err != nil {
-//		return err
-//	}
-//
-//	if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
-//		prefix := cosUrl.(*CosUrl).Object
-//		err = countOfsObjects(c, prefix, filters, "", DU_TYPE_TOTAL)
-//	} else {
-//		err = countCosObjects(c, cosUrl, filters, DU_TYPE_TOTAL)
-//	}
-//
-//	if err != nil {
-//		return err
-//	}
-//
-//	// 输出最终统计数据
-//	printStatistic()
-//	return nil
-//}

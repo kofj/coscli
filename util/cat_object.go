@@ -8,6 +8,7 @@ import (
 	"os"
 )
 
+// CatObject 查看cos对象内容
 func CatObject(c *cos.Client, cosUrl StorageUrl) error {
 	opt := &cos.ObjectGetOptions{
 		ResponseContentType: "text/html",

@@ -18,6 +18,7 @@ Format:
 Example:
 	./coscli bucket-versioning --method put cos://examplebucket versioning
 	./coscli bucket-versioning --method get cos://examplebucket`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		method, _ := cmd.Flags().GetString("method")
 
@@ -51,9 +52,7 @@ Example:
 				return err
 			}
 			logger.Infof("the bucket versioning status has been changed to %s", status)
-		}
-
-		if method == "get" {
+		} else if method == "get" {
 			res, _, err := util.GetBucketVersioning(c)
 			if err != nil {
 				return err
@@ -64,6 +63,8 @@ Example:
 			default:
 				logger.Infof("bucket versioning status is Closed")
 			}
+		} else {
+			err = fmt.Errorf("method '%s' is not supported, valid methods are 'put' and 'get'", method)
 		}
 
 		return err

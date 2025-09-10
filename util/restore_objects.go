@@ -14,19 +14,20 @@ import (
 
 var succeedNum, failedNum, errTypeNum int
 
-func RestoreObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) error {
-	// 根据s.Header判断是否是融合桶或者普通桶
-	s, err := c.Bucket.Head(context.Background())
-	if err != nil {
-		return err
-	}
+// RestoreObjects 取回cos对象
+func RestoreObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, bucketType string) error {
 	logger.Infof("Start Restore %s", cosUrl.(*CosUrl).Bucket+cosUrl.(*CosUrl).Object)
-	if s.Header.Get("X-Cos-Bucket-Arch") == "OFS" {
+	var err error
+	if bucketType == BucketTypeOfs {
 		bucketName := cosUrl.(*CosUrl).Bucket
 		prefix := cosUrl.(*CosUrl).Object
 		err = restoreOfsObjects(c, bucketName, prefix, fo, "")
 	} else {
 		err = restoreCosObjects(c, cosUrl, fo)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	absErrOutputPath, _ := filepath.Abs(fo.ErrOutput.Path)
@@ -53,7 +54,7 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) err
 		}
 
 		for _, object := range objects {
-			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
+			if isRestoreType(object) {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
 					if object.RestoreStatus == "ONGOING" || object.RestoreStatus == "ONGING" {
@@ -83,6 +84,7 @@ func restoreCosObjects(c *cos.Client, cosUrl StorageUrl, fo *FileOperations) err
 	return nil
 }
 
+// TryRestoreObject 重试回热对象
 func TryRestoreObject(c *cos.Client, bucketName, objectKey string, days int, mode string) (resp *cos.Response, err error) {
 
 	logger.Infof("Restore cos://%s/%s\n", bucketName, objectKey)
@@ -128,7 +130,7 @@ func restoreOfsObjects(c *cos.Client, bucketName, prefix string, fo *FileOperati
 		}
 
 		for _, object := range objects {
-			if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
+			if isRestoreType(object) {
 				object.Key, _ = url.QueryUnescape(object.Key)
 				if cosObjectMatchPatterns(object.Key, fo.Operation.Filters) {
 					if object.RestoreStatus == "ONGOING" || object.RestoreStatus == "ONGING" {
@@ -166,4 +168,21 @@ func restoreOfsObjects(c *cos.Client, bucketName, prefix string, fo *FileOperati
 	}
 
 	return nil
+}
+
+// 判断是否是需要回热的文件类型
+func isRestoreType(object cos.Object) bool {
+	if object.StorageClass == Archive || object.StorageClass == MAZArchive || object.StorageClass == DeepArchive {
+		return true
+	}
+
+	// 智能分层类型需要在归档层和深度归档层才可以回热
+	if object.StorageClass == IntelligentTiering || object.StorageClass == MAZIntelligentTiering {
+		if object.StorageTier == StorageTierArchive || object.StorageTier == StorageTierDeepArchive {
+			return true
+		}
+	}
+
+	return false
+
 }
