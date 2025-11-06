@@ -217,6 +217,11 @@ Example:
 			if err != nil {
 				return err
 			}
+			// 检查进程日志是否是本地路径的子集
+			err = util.CheckPath(srcUrl, fo, util.TypeProcessLogPath)
+			if err != nil {
+				return err
+			}
 			// 格式化上传路径
 			err = util.FormatUploadPath(srcUrl, destUrl, fo)
 			if err != nil {
@@ -250,6 +255,11 @@ Example:
 			}
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
+			if err != nil {
+				return err
+			}
+			// 检查进程日志是否是本地路径的子集
+			err = util.CheckPath(destUrl, fo, util.TypeProcessLogPath)
 			if err != nil {
 				return err
 			}

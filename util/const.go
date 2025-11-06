@@ -28,6 +28,7 @@ const (
 const (
 	TypeSnapshotPath   = "snapshotPath"
 	TypeFailOutputPath = "failOutputPath"
+	TypeProcessLogPath = "processLogPath"
 )
 
 const (
