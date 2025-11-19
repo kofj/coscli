@@ -55,25 +55,8 @@ func GetSignedURL(path string, t int) error {
 		Query:  &url.Values{},
 		Header: &http.Header{},
 	}
-	// 格式化参数
-	secretID, secretKey, secretToken := config.Base.SecretID, config.Base.SecretKey, config.Base.SessionToken
-	if param.SecretID != "" {
-		secretID = param.SecretID
-		secretToken = ""
-	}
-	if param.SecretKey != "" {
-		secretKey = param.SecretKey
-		secretToken = ""
-	}
-	if param.SessionToken != "" {
-		secretToken = param.SessionToken
-	}
-	if secretToken != "" {
-		opt.Query.Add("x-cos-security-token", secretToken)
-	}
 
-	presignedURL, err := c.Object.GetPresignedURL(context.Background(), http.MethodGet, cosPath,
-		secretID, secretKey, time.Second*time.Duration(t), opt)
+	presignedURL, err := c.Object.GetPresignedURL2(context.Background(), http.MethodGet, cosPath, time.Second*time.Duration(t), opt)
 	if err != nil {
 		return err
 	}
