@@ -183,7 +183,9 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 
 				time.Sleep(sleepTime)
 
-				fo.Monitor.updateDealSize(-transferSize)
+				if !fo.Operation.CheckPoint {
+					fo.Monitor.updateDealSize(-transferSize)
+				}
 			}
 		}
 

@@ -130,7 +130,9 @@ func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <
 
 				time.Sleep(sleepTime)
 
-				fo.Monitor.updateDealSize(-transferSize)
+				if !fo.Operation.CheckPoint {
+					fo.Monitor.updateDealSize(-transferSize)
+				}
 			}
 		}
 
