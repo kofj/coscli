@@ -262,11 +262,10 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		}
 
 		counter := &Counter{TransferSize: 0}
-		// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)
-		if size > fo.Operation.PartSize*1024*1024 {
-			opt.OptIni.Listener = &CosListener{fo, counter}
-			size = 0
-		}
+		// 未跳过则通过监听更新size
+		opt.OptIni.Listener = &CosListener{fo, counter}
+		// 使用process更新进度，置零size
+		size = 0
 
 		_, _, err = c.Object.Upload(context.Background(), cosPath, localFilePath, opt)
 

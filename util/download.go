@@ -295,10 +295,8 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	}
 	counter := &Counter{TransferSize: 0}
 	// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)
-	if size > fo.Operation.PartSize*1024*1024 {
-		opt.Opt.Listener = &CosListener{fo, counter}
-		size = 0
-	}
+	opt.Opt.Listener = &CosListener{fo, counter}
+	size = 0
 
 	var resp *cos.Response
 
