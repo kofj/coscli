@@ -67,19 +67,15 @@ func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []Up
 // get objects限频重试(最多重试10次，每次重试间隔1-10s随机)
 func tryGetObjects(c *cos.Client, opt *cos.BucketGetOptions) (*cos.BucketGetResult, error) {
 	for i := 0; i <= 10; i++ {
-		res, resp, err := c.Bucket.Get(context.Background(), opt)
+		res, _, err := c.Bucket.Get(context.Background(), opt)
 		if err != nil {
-			if resp != nil && resp.StatusCode == 503 {
-				if i == 10 {
-					return res, err
-				} else {
-					fmt.Println("Error 503: Service Unavailable. Retrying...")
-					waitTime := time.Duration(rand.Intn(10)+1) * time.Second
-					time.Sleep(waitTime)
-					continue
-				}
-			} else {
+			if i == 10 {
 				return res, err
+			} else {
+				//fmt.Println("Error 503: Service Unavailable. Retrying...")
+				waitTime := time.Duration(rand.Intn(10)+1) * time.Second
+				time.Sleep(waitTime)
+				continue
 			}
 		} else {
 			return res, err
