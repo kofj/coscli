@@ -309,7 +309,7 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	}
 
 	if err != nil {
-		if isPart && !fo.Operation.CheckPoint {
+		if (!isPart) || (isPart && !fo.Operation.CheckPoint) {
 			transferSize = counter.TransferSize
 		}
 		rErr = err

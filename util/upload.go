@@ -271,7 +271,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		_, _, err = c.Object.Upload(context.Background(), cosPath, localFilePath, opt)
 
 		if err != nil {
-			if isPart && !fo.Operation.CheckPoint {
+			if (!isPart) || (isPart && !fo.Operation.CheckPoint) {
 				transferSize = counter.TransferSize
 			}
 			rErr = err
