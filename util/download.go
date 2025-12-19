@@ -122,7 +122,7 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 		case err := <-chListError:
 			if err != nil {
 				if fo.Operation.FailOutput {
-					writeError(err.Error(), fo)
+					writeError(fmt.Sprintf("[%s] ListObjects error:%s\n", time.Now().Format("2006-01-02 15:04:05"), err.Error()), fo)
 				}
 			}
 			completed++
