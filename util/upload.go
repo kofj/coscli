@@ -130,9 +130,7 @@ func uploadFiles(c *cos.Client, cosUrl StorageUrl, fo *FileOperations, chFiles <
 
 				time.Sleep(sleepTime)
 
-				if !fo.Operation.CheckPoint {
-					fo.Monitor.updateDealSize(-transferSize)
-				}
+				fo.Monitor.updateDealSize(-transferSize)
 			}
 		}
 
@@ -260,7 +258,10 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		if fo.Operation.ForbidOverWrite {
 			opt.OptIni.XOptionHeader.Add("x-cos-forbid-overwrite", "true")
 		}
-
+		isPart := true
+		if fo.Operation.PartSize > size {
+			isPart = false
+		}
 		counter := &Counter{TransferSize: 0}
 		// 未跳过则通过监听更新size
 		opt.OptIni.Listener = &CosListener{fo, counter}
@@ -270,7 +271,9 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		_, _, err = c.Object.Upload(context.Background(), cosPath, localFilePath, opt)
 
 		if err != nil {
-			transferSize = counter.TransferSize
+			if isPart && !fo.Operation.CheckPoint {
+				transferSize = counter.TransferSize
+			}
 			rErr = err
 			return
 		}

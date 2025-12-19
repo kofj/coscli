@@ -183,9 +183,7 @@ func downloadFiles(c *cos.Client, cosUrl, fileUrl StorageUrl, fo *FileOperations
 
 				time.Sleep(sleepTime)
 
-				if !fo.Operation.CheckPoint {
-					fo.Monitor.updateDealSize(-transferSize)
-				}
+				fo.Monitor.updateDealSize(-transferSize)
 			}
 		}
 
@@ -293,6 +291,10 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		CheckPointFile:  "",
 		DisableChecksum: fo.Operation.DisableChecksum,
 	}
+	isPart := true
+	if fo.Operation.PartSize > size {
+		isPart = false
+	}
 	counter := &Counter{TransferSize: 0}
 	// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)
 	opt.Opt.Listener = &CosListener{fo, counter}
@@ -307,7 +309,9 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	}
 
 	if err != nil {
-		transferSize = counter.TransferSize
+		if isPart && !fo.Operation.CheckPoint {
+			transferSize = counter.TransferSize
+		}
 		rErr = err
 		return
 	}
