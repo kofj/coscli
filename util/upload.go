@@ -190,6 +190,12 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 	} else {
 		size = fileInfo.Size()
 
+		// 跳过空文件
+		if fo.Operation.IgnoreEmptyFile && size == 0 {
+			skip = true
+			return
+		}
+
 		// 仅sync命令执行skip
 		if fo.Command == CommandSync {
 			absLocalFilePath, _ := filepath.Abs(localFilePath)
