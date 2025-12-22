@@ -228,6 +228,13 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		return
 	}
 
+	// 跳过空文件
+	if fo.Operation.IgnoreEmptyFile && size == 0 {
+		size = objectInfo.size
+		skip = true
+		return
+	}
+
 	_, err := os.Stat(localFilePath)
 
 	if err == nil {
