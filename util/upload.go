@@ -195,12 +195,12 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 			skip = true
 			return
 		}
-
+		var skipType string
 		// 仅sync命令执行skip
 		if fo.Command == CommandSync {
 			absLocalFilePath, _ := filepath.Abs(localFilePath)
 			snapshotKey = getUploadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
-			skip, err = skipUpload(snapshotKey, c, fo, fileInfo.ModTime().Unix(), cosPath, localFilePath)
+			skip, skipType, err = skipUpload(snapshotKey, c, fo, fileInfo.ModTime().Unix(), cosPath, localFilePath)
 			if err != nil {
 				rErr = err
 				return
@@ -208,6 +208,10 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		}
 
 		if skip {
+			if snapshotKey != "" && fo.Operation.SnapshotPath != "" && fo.Command == CommandSync && (skipType == SyncTypeUpdate || skipType == SyncTypeIgnoreExisting || skipType == SyncTypeCrc64) {
+				// 非快照跳过后添加快照
+				fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(fileInfo.ModTime().Unix(), 10)), nil)
+			}
 			return
 		}
 
@@ -285,7 +289,7 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		}
 	}
 
-	if snapshotKey != "" && fo.Operation.SnapshotPath != "" {
+	if snapshotKey != "" && fo.Operation.SnapshotPath != "" && fo.Command == CommandSync {
 		// 上传成功后添加快照
 		fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(fileInfo.ModTime().Unix(), 10)), nil)
 	}

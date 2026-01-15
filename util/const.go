@@ -76,3 +76,11 @@ const (
 	ContentTypePolicy    = "policy"
 	ContentTypeInventory = "inventory"
 )
+
+const (
+	SyncTypeUnknown        = "unknown"
+	SyncTypeIgnoreExisting = "ignoreExisting"
+	SyncTypeUpdate         = "update"
+	SyncTypeCrc64          = "crc64"
+	SyncTypeSnapshot       = "snapshot"
+)

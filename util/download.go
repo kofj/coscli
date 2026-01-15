@@ -235,24 +235,50 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		return
 	}
 
+	var snapshotKey string
+	if fo.Command == CommandSync {
+		absLocalFilePath, _ := filepath.Abs(localFilePath)
+		snapshotKey = getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
+	}
+
 	_, err := os.Stat(localFilePath)
 
 	if err == nil {
 		// 文件存在再判断是否需要跳过
 		// 仅sync命令执行skip
 		if fo.Command == CommandSync {
+			var skipType string
 			if fo.Operation.IgnoreExisting {
 				skip = true
+				skipType = SyncTypeIgnoreExisting
 			} else {
-				absLocalFilePath, _ := filepath.Abs(localFilePath)
-				snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
-				skip, err = skipDownload(snapshotKey, c, fo, localFilePath, objectInfo.lastModified, object)
+				skip, skipType, err = skipDownload(snapshotKey, c, fo, localFilePath, objectInfo.lastModified, object)
 				if err != nil {
 					rErr = err
 				}
 			}
 
 			if skip {
+
+				if snapshotKey != "" && fo.Operation.SnapshotPath != "" && (skipType == SyncTypeUpdate || skipType == SyncTypeIgnoreExisting || skipType == SyncTypeCrc64) {
+					lastModified := objectInfo.lastModified
+					if lastModified == "" {
+						return
+					}
+
+					// 解析时间字符串
+					objectModifiedTime, err := time.Parse(time.RFC3339, lastModified)
+					if err != nil {
+						objectModifiedTime, err = time.Parse(time.RFC1123, lastModified)
+						if err != nil {
+							rErr = err
+							return
+						}
+
+					}
+
+					fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
+				}
 				return
 			}
 
@@ -325,7 +351,7 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	}
 
 	// 下载完成记录快照信息
-	if fo.Operation.SnapshotPath != "" {
+	if snapshotKey != "" && fo.Operation.SnapshotPath != "" && fo.Command == CommandSync {
 		lastModified := resp.Header.Get("Last-Modified")
 		if lastModified == "" {
 			return
@@ -342,8 +368,6 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 
 		}
 
-		absLocalFilePath, _ := filepath.Abs(localFilePath)
-		snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
 		fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
 	}
 
