@@ -48,7 +48,7 @@ func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFile
 		if err == nil {
 			modifiedTime, _ := strconv.ParseInt(string(timeStr), 10, 64)
 			if modifiedTime == localFileModifiedTime {
-				return true, SyncTypeUnknown, nil
+				return true, SyncTypeSnapshot, nil
 			}
 		}
 	}
