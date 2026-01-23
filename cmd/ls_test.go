@@ -91,7 +91,7 @@ func TestLsCmd(t *testing.T) {
 			Convey("参数--limit<0", func() {
 				clearCmd()
 				cmd := rootCmd
-				args := []string{"ls", "--limit", "-1"}
+				args := []string{"ls", "--limit", "-2"}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)
