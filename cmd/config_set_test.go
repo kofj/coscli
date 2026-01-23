@@ -24,6 +24,10 @@ func TestConfigSetCmd(t *testing.T) {
 	if err == nil {
 		oldconfig.Base.SessionToken = sessionToken
 	}
+	oldconfig.Base.Mode = config.Base.Mode
+	oldconfig.Base.CvmRoleName = config.Base.CvmRoleName
+	oldconfig.Base.CloseAutoSwitchHost = config.Base.CloseAutoSwitchHost
+	oldconfig.Base.DisableEncryption = config.Base.DisableEncryption
 	copyYaml()
 	defer restoreYaml()
 	clearCmd()
@@ -52,12 +56,23 @@ func TestConfigSetCmd(t *testing.T) {
 			})
 		})
 		Convey("success", func() {
-			Convey("give arguments", func() {
+
+			Convey("give arguments test", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"config", "set", "--secret_id", "@",
+					"--secret_key", "@", "--session_token", "@", "--mode", oldconfig.Base.Mode,
+					"--cvm_role_name", oldconfig.Base.CvmRoleName, "--close_auto_switch_host", "@", "--disable_encryption", "@"}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeNil)
+			})
+			Convey("give arguments reset", func() {
 				clearCmd()
 				cmd := rootCmd
 				args := []string{"config", "set", "--secret_id", oldconfig.Base.SecretID,
-					"--secret_key", oldconfig.Base.SecretKey, "--session_token", "@", "--mode", oldconfig.Base.Mode,
-					"--cvm_role_name", "@", "--close_auto_switch_host", oldconfig.Base.CloseAutoSwitchHost, "--disable_encryption", oldconfig.Base.DisableEncryption}
+					"--secret_key", oldconfig.Base.SecretKey, "--session_token", oldconfig.Base.SessionToken, "--mode", oldconfig.Base.Mode,
+					"--cvm_role_name", oldconfig.Base.CvmRoleName, "--close_auto_switch_host", oldconfig.Base.CloseAutoSwitchHost, "--disable_encryption", oldconfig.Base.DisableEncryption}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				So(e, ShouldBeNil)

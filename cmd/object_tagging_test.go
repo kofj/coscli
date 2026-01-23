@@ -27,6 +27,7 @@ func TestObjectTaggingCmd(t *testing.T) {
 	localFileName := fmt.Sprintf("%s/small-file/0", testDir)
 	// 上传cos文件
 	cosFileName := fmt.Sprintf("cos://%s/%s", testAlias, "multi-small")
+	errorCosFileName := fmt.Sprintf("cos:/%s/%s", testAlias, "multi-small")
 	args := []string{"cp", localFileName, cosFileName, "-r"}
 	cmd.SetArgs(args)
 	cmd.Execute()
@@ -131,6 +132,40 @@ func TestObjectTaggingCmd(t *testing.T) {
 			//})
 		})
 		Convey("fail", func() {
+			Convey("cos path error", func() {
+				clearCmd()
+				cmd := rootCmd
+
+				args := []string{"object-tagging", "--method", "get",
+					errorCosFileName}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				fmt.Printf(" : %v", e)
+				So(e, ShouldBeError)
+			})
+			Convey("not supported method", func() {
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"object-tagging", "--method", "get2",
+					cosFileName}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
+
+			Convey("get bucket type error", func() {
+				patches := ApplyFunc(util.GetBucketType, func(c *cos.Client, param *util.Param, config *util.Config, bucketName string) (string, error) {
+					return "", fmt.Errorf("get bucket type error")
+				})
+				defer patches.Reset()
+				clearCmd()
+				cmd := rootCmd
+				args := []string{"object-tagging", "--method", "get",
+					cosFileName}
+				cmd.SetArgs(args)
+				e := cmd.Execute()
+				So(e, ShouldBeError)
+			})
 			Convey("put", func() {
 				Convey("not enough arguments", func() {
 					clearCmd()
