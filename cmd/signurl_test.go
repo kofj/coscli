@@ -79,7 +79,7 @@ func TestSignurlCmd(t *testing.T) {
 				clearCmd()
 				cmd := rootCmd
 				var c *cos.ObjectService
-				patches := ApplyMethodFunc(reflect.TypeOf(c), "GetPresignedURL", func(ctx context.Context, httpMethod string, name string, ak string, sk string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
+				patches := ApplyMethodFunc(reflect.TypeOf(c), "GetPresignedURL2", func(ctx context.Context, httpMethod, name string, expired time.Duration, opt interface{}, signHost ...bool) (*url.URL, error) {
 					return nil, fmt.Errorf("test getpresignedurl error")
 				})
 				defer patches.Reset()
@@ -87,7 +87,7 @@ func TestSignurlCmd(t *testing.T) {
 					return &cos.Client{}, nil
 				})
 				args := []string{"signurl",
-					fmt.Sprintf("cos://%s/0", testAlias), "-i", "123", "-k", "123", "--token", "123"}
+					fmt.Sprintf("cos://%s/0", testAlias)}
 				cmd.SetArgs(args)
 				e := cmd.Execute()
 				fmt.Printf(" : %v", e)

@@ -122,7 +122,8 @@ func batchDownloadFiles(c *cos.Client, cosUrl StorageUrl, fileUrl StorageUrl, fo
 		case err := <-chListError:
 			if err != nil {
 				if fo.Operation.FailOutput {
-					writeError(err.Error(), fo)
+					fo.Monitor.updateListErr(1)
+					writeError(fmt.Sprintf("[%s] ListObjects error:%s\n", time.Now().Format("2006-01-02 15:04:05"), err.Error()), fo)
 				}
 			}
 			completed++
@@ -227,24 +228,57 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		return
 	}
 
+	// 跳过空文件
+	if fo.Operation.IgnoreEmptyFile && size == 0 {
+		size = objectInfo.size
+		skip = true
+		return
+	}
+
+	var snapshotKey string
+	if fo.Command == CommandSync {
+		absLocalFilePath, _ := filepath.Abs(localFilePath)
+		snapshotKey = getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
+	}
+
 	_, err := os.Stat(localFilePath)
 
 	if err == nil {
 		// 文件存在再判断是否需要跳过
 		// 仅sync命令执行skip
 		if fo.Command == CommandSync {
+			var skipType string
 			if fo.Operation.IgnoreExisting {
 				skip = true
+				skipType = SyncTypeIgnoreExisting
 			} else {
-				absLocalFilePath, _ := filepath.Abs(localFilePath)
-				snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
-				skip, err = skipDownload(snapshotKey, c, fo, localFilePath, objectInfo.lastModified, object)
+				skip, skipType, err = skipDownload(snapshotKey, c, fo, localFilePath, objectInfo.lastModified, object)
 				if err != nil {
 					rErr = err
 				}
 			}
 
 			if skip {
+
+				if snapshotKey != "" && fo.Operation.SnapshotPath != "" && (skipType == SyncTypeUpdate || skipType == SyncTypeIgnoreExisting || skipType == SyncTypeCrc64) {
+					lastModified := objectInfo.lastModified
+					if lastModified == "" {
+						return
+					}
+
+					// 解析时间字符串
+					objectModifiedTime, err := time.Parse(time.RFC3339, lastModified)
+					if err != nil {
+						objectModifiedTime, err = time.Parse(time.RFC1123, lastModified)
+						if err != nil {
+							rErr = err
+							return
+						}
+
+					}
+
+					fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
+				}
 				return
 			}
 
@@ -291,12 +325,14 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 		CheckPointFile:  "",
 		DisableChecksum: fo.Operation.DisableChecksum,
 	}
+	isPart := true
+	if fo.Operation.PartSize > size {
+		isPart = false
+	}
 	counter := &Counter{TransferSize: 0}
 	// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)
-	if size > fo.Operation.PartSize*1024*1024 {
-		opt.Opt.Listener = &CosListener{fo, counter}
-		size = 0
-	}
+	opt.Opt.Listener = &CosListener{fo, counter}
+	size = 0
 
 	var resp *cos.Response
 
@@ -307,13 +343,15 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 	}
 
 	if err != nil {
-		transferSize = counter.TransferSize
+		if (!isPart) || (isPart && !fo.Operation.CheckPoint) {
+			transferSize = counter.TransferSize
+		}
 		rErr = err
 		return
 	}
 
 	// 下载完成记录快照信息
-	if fo.Operation.SnapshotPath != "" {
+	if snapshotKey != "" && fo.Operation.SnapshotPath != "" && fo.Command == CommandSync {
 		lastModified := resp.Header.Get("Last-Modified")
 		if lastModified == "" {
 			return
@@ -330,8 +368,6 @@ func singleDownload(c *cos.Client, fo *FileOperations, objectInfo objectInfoType
 
 		}
 
-		absLocalFilePath, _ := filepath.Abs(localFilePath)
-		snapshotKey := getDownloadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
 		fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
 	}
 

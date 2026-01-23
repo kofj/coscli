@@ -42,13 +42,13 @@ func SyncUpload(c *cos.Client, fileUrl StorageUrl, cosUrl StorageUrl, fo *FileOp
 	return nil
 }
 
-func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFileModifiedTime int64, cosPath string, localPath string) (bool, error) {
+func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFileModifiedTime int64, cosPath string, localPath string) (bool, string, error) {
 	if fo.Operation.SnapshotPath != "" {
 		timeStr, err := fo.SnapshotDb.Get([]byte(snapshotKey), nil)
 		if err == nil {
 			modifiedTime, _ := strconv.ParseInt(string(timeStr), 10, 64)
 			if modifiedTime == localFileModifiedTime {
-				return true, nil
+				return true, SyncTypeSnapshot, nil
 			}
 		}
 	}
@@ -57,14 +57,14 @@ func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFile
 	if err != nil {
 		if resp != nil && resp.StatusCode == 404 {
 			// 文件不在cos上，上传
-			return false, nil
+			return false, SyncTypeCrc64, nil
 		} else {
-			return false, err
+			return false, SyncTypeCrc64, err
 		}
 	} else {
 		if resp.StatusCode != 404 {
 			if fo.Operation.IgnoreExisting {
-				return true, nil
+				return true, SyncTypeIgnoreExisting, nil
 			} else if fo.Operation.Update {
 				lastModified := resp.Header.Get("Last-Modified")
 
@@ -73,34 +73,34 @@ func skipUpload(snapshotKey string, c *cos.Client, fo *FileOperations, localFile
 				if err != nil {
 					lastModifiedTime, err = time.Parse(time.RFC1123, lastModified)
 					if err != nil {
-						return false, err
+						return false, SyncTypeUpdate, err
 					}
 				}
 				if lastModifiedTime.Unix() >= localFileModifiedTime {
-					return true, nil
+					return true, SyncTypeUpdate, nil
 				}
 			} else {
 				cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
 				localCrc, _, err := CalculateHash(localPath, "crc64")
 				if err != nil {
-					return false, err
+					return false, SyncTypeCrc64, err
 				}
 				if cosCrc == localCrc {
 					// 本地校验通过后，若未记录快照。则添加
 					if fo.Operation.SnapshotPath != "" {
 						fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(localFileModifiedTime, 10)), nil)
 					}
-					return true, nil
+					return true, SyncTypeCrc64, nil
 				} else {
-					return false, nil
+					return false, SyncTypeCrc64, nil
 				}
 			}
 
 		} else {
-			return false, nil
+			return false, SyncTypeCrc64, nil
 		}
 	}
-	return false, nil
+	return false, SyncTypeUnknown, nil
 }
 
 func getUploadSnapshotKey(absLocalFilePath string, bucket string, object string) string {
@@ -111,13 +111,13 @@ func getDownloadSnapshotKey(absLocalFilePath string, bucket string, object strin
 	return getCosUrl(bucket, object) + SnapshotConnector + absLocalFilePath
 }
 
-func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPath string, objectModifiedTimeStr string, object string) (bool, error) {
+func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPath string, objectModifiedTimeStr string, object string) (bool, string, error) {
 	// 解析时间字符串
 	objectModifiedTime, err := time.Parse(time.RFC3339, objectModifiedTimeStr)
 	if err != nil {
 		objectModifiedTime, err = time.Parse(time.RFC1123, objectModifiedTimeStr)
 		if err != nil {
-			return false, err
+			return false, SyncTypeUnknown, err
 		}
 
 	}
@@ -127,7 +127,7 @@ func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPa
 		if err == nil {
 			modifiedTime, _ := strconv.ParseInt(string(timeStr), 10, 64)
 			if modifiedTime == objectModifiedTime.Unix() {
-				return true, nil
+				return true, SyncTypeSnapshot, nil
 			}
 		}
 	}
@@ -135,25 +135,25 @@ func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPa
 	if fo.Operation.Update {
 		f, err := os.Stat(localPath)
 		if err != nil {
-			return false, err
+			return false, SyncTypeUpdate, err
 		}
 
 		fileLastModifiedTime := f.ModTime()
 		if fileLastModifiedTime.Unix() >= objectModifiedTime.Unix() {
-			return true, nil
+			return true, SyncTypeUpdate, nil
 		}
 	} else {
 		localCrc, _, err := CalculateHash(localPath, "crc64")
 		if err != nil {
-			return false, err
+			return false, SyncTypeCrc64, err
 		}
 		resp, err := GetHead(c, object)
 		if err != nil {
 			if resp != nil && resp.StatusCode == 404 {
 				// 文件不在cos上
-				return false, fmt.Errorf("Object not found")
+				return false, SyncTypeCrc64, fmt.Errorf("Object not found")
 			} else {
-				return false, err
+				return false, SyncTypeCrc64, err
 			}
 		} else {
 			cosCrc := resp.Header.Get("x-cos-hash-crc64ecma")
@@ -162,12 +162,12 @@ func skipDownload(snapshotKey string, c *cos.Client, fo *FileOperations, localPa
 				if fo.Operation.SnapshotPath != "" {
 					fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(objectModifiedTime.Unix(), 10)), nil)
 				}
-				return true, nil
+				return true, SyncTypeCrc64, nil
 			}
 		}
 	}
 
-	return false, nil
+	return false, SyncTypeUnknown, nil
 }
 
 func skipCopy(srcClient, destClient *cos.Client, object, destPath string, fo *FileOperations) (bool, error) {

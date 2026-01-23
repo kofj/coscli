@@ -151,6 +151,7 @@ type Operation struct {
 	SSECustomerAlgo      string
 	SSECustomerKey       string
 	SSECustomerKeyMD5    string
+	IgnoreEmptyFile      bool
 }
 
 // ErrOutput 错误输出信息

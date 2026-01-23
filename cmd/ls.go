@@ -26,8 +26,8 @@ Example:
 
 		if limit == 0 {
 			limit = 10000
-		} else if limit < 0 {
-			return fmt.Errorf("Flag --limit should be greater than 0")
+		} else if limit < -1 {
+			return fmt.Errorf("Flag --limit should be greater than -1")
 		}
 
 		cosPath := ""

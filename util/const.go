@@ -28,10 +28,11 @@ const (
 const (
 	TypeSnapshotPath   = "snapshotPath"
 	TypeFailOutputPath = "failOutputPath"
+	TypeProcessLogPath = "processLogPath"
 )
 
 const (
-	Version             string = "v1.0.7"
+	Version             string = "v1.0.8"
 	Package             string = "coscli"
 	SchemePrefix        string = "cos://"
 	CosSeparator        string = "/"
@@ -74,4 +75,12 @@ const (
 const (
 	ContentTypePolicy    = "policy"
 	ContentTypeInventory = "inventory"
+)
+
+const (
+	SyncTypeUnknown        = "unknown"
+	SyncTypeIgnoreExisting = "ignoreExisting"
+	SyncTypeUpdate         = "update"
+	SyncTypeCrc64          = "crc64"
+	SyncTypeSnapshot       = "snapshot"
 )

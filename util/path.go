@@ -121,6 +121,13 @@ func CheckPath(fileUrl StorageUrl, fo *FileOperations, pathType string) error {
 			return nil
 		}
 
+	} else if pathType == TypeProcessLogPath {
+		if fo.Operation.ProcessLog {
+			path = fo.Operation.ProcessLogPath
+		} else {
+			return nil
+		}
+
 	} else {
 		return fmt.Errorf("check path failed , invalid pathType %s", pathType)
 	}

@@ -190,11 +190,17 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 	} else {
 		size = fileInfo.Size()
 
+		// 跳过空文件
+		if fo.Operation.IgnoreEmptyFile && size == 0 {
+			skip = true
+			return
+		}
+		var skipType string
 		// 仅sync命令执行skip
 		if fo.Command == CommandSync {
 			absLocalFilePath, _ := filepath.Abs(localFilePath)
 			snapshotKey = getUploadSnapshotKey(absLocalFilePath, cosUrl.(*CosUrl).Bucket, cosUrl.(*CosUrl).Object)
-			skip, err = skipUpload(snapshotKey, c, fo, fileInfo.ModTime().Unix(), cosPath, localFilePath)
+			skip, skipType, err = skipUpload(snapshotKey, c, fo, fileInfo.ModTime().Unix(), cosPath, localFilePath)
 			if err != nil {
 				rErr = err
 				return
@@ -202,6 +208,10 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		}
 
 		if skip {
+			if snapshotKey != "" && fo.Operation.SnapshotPath != "" && fo.Command == CommandSync && (skipType == SyncTypeUpdate || skipType == SyncTypeIgnoreExisting || skipType == SyncTypeCrc64) {
+				// 非快照跳过后添加快照
+				fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(fileInfo.ModTime().Unix(), 10)), nil)
+			}
 			return
 		}
 
@@ -258,24 +268,28 @@ func SingleUpload(c *cos.Client, fo *FileOperations, file fileInfoType, cosUrl S
 		if fo.Operation.ForbidOverWrite {
 			opt.OptIni.XOptionHeader.Add("x-cos-forbid-overwrite", "true")
 		}
-
-		counter := &Counter{TransferSize: 0}
-		// 未跳过则通过监听更新size(仅需要分块文件的通过sdk监听进度)
-		if size > fo.Operation.PartSize*1024*1024 {
-			opt.OptIni.Listener = &CosListener{fo, counter}
-			size = 0
+		isPart := true
+		if fo.Operation.PartSize > size {
+			isPart = false
 		}
+		counter := &Counter{TransferSize: 0}
+		// 未跳过则通过监听更新size
+		opt.OptIni.Listener = &CosListener{fo, counter}
+		// 使用process更新进度，置零size
+		size = 0
 
 		_, _, err = c.Object.Upload(context.Background(), cosPath, localFilePath, opt)
 
 		if err != nil {
-			transferSize = counter.TransferSize
+			if (!isPart) || (isPart && !fo.Operation.CheckPoint) {
+				transferSize = counter.TransferSize
+			}
 			rErr = err
 			return
 		}
 	}
 
-	if snapshotKey != "" && fo.Operation.SnapshotPath != "" {
+	if snapshotKey != "" && fo.Operation.SnapshotPath != "" && fo.Command == CommandSync {
 		// 上传成功后添加快照
 		fo.SnapshotDb.Put([]byte(snapshotKey), []byte(strconv.FormatInt(fileInfo.ModTime().Unix(), 10)), nil)
 	}

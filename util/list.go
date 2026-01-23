@@ -67,19 +67,15 @@ func MatchUploadPattern(uploads []UploadInfo, pattern string, include bool) []Up
 // get objects限频重试(最多重试10次，每次重试间隔1-10s随机)
 func tryGetObjects(c *cos.Client, opt *cos.BucketGetOptions) (*cos.BucketGetResult, error) {
 	for i := 0; i <= 10; i++ {
-		res, resp, err := c.Bucket.Get(context.Background(), opt)
+		res, _, err := c.Bucket.Get(context.Background(), opt)
 		if err != nil {
-			if resp != nil && resp.StatusCode == 503 {
-				if i == 10 {
-					return res, err
-				} else {
-					fmt.Println("Error 503: Service Unavailable. Retrying...")
-					waitTime := time.Duration(rand.Intn(10)+1) * time.Second
-					time.Sleep(waitTime)
-					continue
-				}
-			} else {
+			if i == 10 {
 				return res, err
+			} else {
+				//fmt.Println("Error 503: Service Unavailable. Retrying...")
+				waitTime := time.Duration(rand.Intn(10)+1) * time.Second
+				time.Sleep(waitTime)
+				continue
 			}
 		} else {
 			return res, err
@@ -185,7 +181,8 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 	for isTruncated && total < limit {
 		table.ClearRows()
 		queryLimit := 1000
-		if limit-total < 1000 {
+
+		if limit > 0 && limit-total < 1000 {
 			queryLimit = limit - total
 		}
 
@@ -216,11 +213,12 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 			}
 		}
 
-		if !isTruncated || total >= limit {
+		if !isTruncated || (limit > 0 && total >= limit) {
 			table.SetFooter([]string{"", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
 			table.Render()
 			break
 		}
+
 		table.Render()
 
 		// 重置表格
@@ -259,7 +257,8 @@ func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive b
 	for isTruncated && total < limit {
 		table.ClearRows()
 		queryLimit := 1000
-		if limit-total < 1000 {
+
+		if limit > 0 && limit-total < 1000 {
 			queryLimit = limit - total
 		}
 
@@ -303,11 +302,12 @@ func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive b
 			}
 		}
 
-		if !isTruncated || total >= limit {
+		if !isTruncated || (limit > 0 && total >= limit) {
 			table.SetFooter([]string{"", "", "", "", "", "", "Total Objects: ", fmt.Sprintf("%d", total)})
 			table.Render()
 			break
 		}
+
 		table.Render()
 
 		// 重置表格
@@ -358,12 +358,17 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 	for isTruncated {
 
 		queryLimit := 1000
-		if limit-lsCounter.TotalLimit < 1000 {
-			queryLimit = limit - lsCounter.TotalLimit
-		}
 
-		if queryLimit <= 0 {
-			return nil
+		if limit >= 0 {
+			queryLimit = limit - lsCounter.TotalLimit
+
+			if queryLimit <= 0 {
+				return nil
+			}
+
+			if queryLimit > 1000 {
+				queryLimit = 1000
+			}
 		}
 
 		err, objects, commonPrefixes, isTruncated, marker = getOfsObjectListForLs(c, prefix, marker, queryLimit, recursive)
@@ -440,7 +445,12 @@ func ListBuckets(c *cos.Client, limit int) error {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Bucket Name", "Region", "Create Date"})
 	for isTruncated {
-		buckets, marker, isTruncated, err = GetBucketsList(c, limit, marker)
+		queryLimit := 1000
+		if limit >= 0 && limit-totalNum < queryLimit {
+			queryLimit = limit - totalNum
+		}
+
+		buckets, marker, isTruncated, err = GetBucketsList(c, queryLimit, marker)
 		if err != nil {
 			return err
 		}
@@ -448,9 +458,11 @@ func ListBuckets(c *cos.Client, limit int) error {
 			table.Append([]string{b.Name, b.Region, b.CreationDate})
 			totalNum++
 		}
-		if limit > 0 {
+
+		if limit >= 0 && totalNum >= limit {
 			isTruncated = false
 		}
+
 	}
 
 	table.SetFooter([]string{"", "Total Buckets: ", fmt.Sprintf("%d", totalNum)})

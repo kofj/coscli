@@ -40,6 +40,7 @@ type FileProcessMonitor struct {
 	skipNum        int64
 	skipNumDir     int64
 	ErrNum         int64
+	ListErrNum     int64
 	lastSnapSize   int64
 	tickDuration   int64
 	seekAheadError error
@@ -129,6 +130,10 @@ func (fpm *FileProcessMonitor) updateSkipDir(num int64) {
 func (fpm *FileProcessMonitor) updateErr(size, num int64) {
 	atomic.AddInt64(&fpm.ErrNum, num)
 	//atomic.AddInt64(&fpm.TransferSize, size)
+}
+
+func (fpm *FileProcessMonitor) updateListErr(num int64) {
+	atomic.AddInt64(&fpm.ListErrNum, num)
 }
 
 func (fpm *FileProcessMonitor) updateMonitor(skip bool, err error, isDir bool, size int64) {
