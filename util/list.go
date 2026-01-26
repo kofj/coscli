@@ -178,7 +178,7 @@ func ListObjects(c *cos.Client, cosUrl StorageUrl, limit int, recursive bool, fi
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(false)
 
-	for isTruncated && total < limit {
+	for (limit < 0 && isTruncated) || (limit > 0 && isTruncated && total < limit) {
 		table.ClearRows()
 		queryLimit := 1000
 
@@ -254,7 +254,7 @@ func ListObjectVersions(c *cos.Client, cosUrl StorageUrl, limit int, recursive b
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(false)
 
-	for isTruncated && total < limit {
+	for (limit < 0 && isTruncated) || (limit > 0 && isTruncated && total < limit) {
 		table.ClearRows()
 		queryLimit := 1000
 
@@ -384,7 +384,7 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 				if err != nil {
 					return fmt.Errorf("Error parsing time:%v", err)
 				}
-				if lsCounter.TotalLimit >= limit {
+				if limit > 0 && lsCounter.TotalLimit >= limit {
 					break
 				}
 				lsCounter.TotalLimit++
@@ -397,7 +397,7 @@ func getOfsObjects(c *cos.Client, prefix string, limit int, recursive bool, filt
 		if len(commonPrefixes) > 0 {
 			for _, commonPrefix := range commonPrefixes {
 				commonPrefix, _ = url.QueryUnescape(commonPrefix)
-				if lsCounter.TotalLimit >= limit {
+				if limit > 0 && lsCounter.TotalLimit >= limit {
 					break
 				}
 				if cosObjectMatchPatterns(commonPrefix, filters) {
