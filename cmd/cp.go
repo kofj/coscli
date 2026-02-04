@@ -207,6 +207,11 @@ Example:
 			if err != nil {
 				return err
 			}
+			// 检查进程日志是否是本地路径的子集
+			err = util.CheckPath(srcUrl, fo, util.TypeProcessLogPath)
+			if err != nil {
+				return err
+			}
 			// 实例化cos client
 			bucketName := destUrl.(*util.CosUrl).Bucket
 			c, err := util.NewClient(fo.Config, fo.Param, bucketName, fo)
@@ -232,6 +237,11 @@ Example:
 			}
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
+			if err != nil {
+				return err
+			}
+			// 检查进程日志是否是本地路径的子集
+			err = util.CheckPath(destUrl, fo, util.TypeProcessLogPath)
 			if err != nil {
 				return err
 			}
@@ -337,7 +347,7 @@ Example:
 		endT := time.Now().UnixNano() / 1000 / 1000
 		util.PrintCostTime(startT, endT)
 
-		if fo.Monitor.ErrNum > 0 {
+		if fo.Monitor.ErrNum > 0 || fo.Monitor.ListErrNum > 0 {
 			logger.Warningf("%s %s to %s %s", operate, srcPath, destPath, fo.Monitor.GetFinishInfo())
 			os.Exit(2)
 		} else {

@@ -12,6 +12,9 @@ var (
 )
 
 func writeProcessLog(errString string, fo *FileOperations) {
+	if !fo.Operation.ProcessLog {
+		return
+	}
 	var err error
 	if fo.ProcessLogger.Path == "" {
 		fo.ProcessLogger.Path = filepath.Join(fo.Operation.ProcessLogPath, fo.OutPutDirName)

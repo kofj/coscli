@@ -78,6 +78,7 @@ Example:
 		sseCustomerKey, _ := cmd.Flags().GetString("sse-customer-key")
 		sseCustomerKeyMD5, _ := cmd.Flags().GetString("sse-customer-key-md5")
 		checkPoint, _ := cmd.Flags().GetBool("check-point")
+		ignoreEmptyFile, _ := cmd.Flags().GetBool("ignore-empty-file")
 
 		// 服务端加密参数验证
 		encryptionType = strings.ToUpper(encryptionType)
@@ -187,6 +188,7 @@ Example:
 				SSECustomerKey:       sseCustomerKey,
 				SSECustomerKeyMD5:    sseCustomerKeyMD5,
 				CheckPoint:           checkPoint,
+				IgnoreEmptyFile:      ignoreEmptyFile,
 			},
 			Monitor:       &util.FileProcessMonitor{},
 			Config:        &config,
@@ -214,6 +216,11 @@ Example:
 			logger.Infof("Upload %s to %s start", srcPath, destPath)
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(srcUrl, fo, util.TypeFailOutputPath)
+			if err != nil {
+				return err
+			}
+			// 检查进程日志是否是本地路径的子集
+			err = util.CheckPath(srcUrl, fo, util.TypeProcessLogPath)
 			if err != nil {
 				return err
 			}
@@ -250,6 +257,11 @@ Example:
 			}
 			// 检查错误输出日志是否是本地路径的子集
 			err = util.CheckPath(destUrl, fo, util.TypeFailOutputPath)
+			if err != nil {
+				return err
+			}
+			// 检查进程日志是否是本地路径的子集
+			err = util.CheckPath(destUrl, fo, util.TypeProcessLogPath)
 			if err != nil {
 				return err
 			}
@@ -412,4 +424,5 @@ func init() {
 	syncCmd.Flags().String("sse-customer-key", "", "The user-provided key should be a 32-byte string, supporting combinations of numbers, letters, and special characters. Chinese characters are not supported.")
 	syncCmd.Flags().String("sse-customer-key-md5", "", "The MD5 value of the user-provided key")
 	syncCmd.Flags().Bool("check-point", true, "Whether to enable breakpoint resume, default is true, enable breakpoint resume.")
+	syncCmd.Flags().Bool("ignore-empty-file", false, "This parameter will ignore zero-byte files.")
 }
